@@ -53,6 +53,9 @@ One word on stdout (`approved` or `cancelled`), only with exit 0 or 1.
 
 A missing `awin` on the PATH is handled by the caller as exit 3.
 
+Exit 0 means approved only together with stdout `approved`. `-h` and `--version` also exit 0 and print no
+`approved`; the wiring never passes options. Options are never abbreviated: `--v` or `--t 30` exit 2.
+
 ## Options
 
 | Option | Effect |

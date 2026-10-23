@@ -156,6 +156,13 @@ class CliTest(unittest.TestCase):
         self.assertEqual((code, out), (0, "approved\n"))
         self.assertEqual(len(asker.calls), 1)
 
+    def test_abbreviated_options_exit_2(self):
+        for argv in (["--v"], ["--ver"], ["--he"], ["--spe", "x"], ["--t", "30"], ["--tim=30"]):
+            with self.subTest(argv=argv):
+                code, out, err, asker = run(argv)  # valid request on stdin, fake asker
+                self.assertEqual((code, out, asker.calls), (2, "", []))
+                self.assertTrue(err.startswith("awin: unrecognized arguments"), err)
+
     def test_version(self):
         code, out, _, asker = run(["--version"], raw=b"")
         self.assertEqual(code, 0)

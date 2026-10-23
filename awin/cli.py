@@ -33,6 +33,7 @@ class _Parser(argparse.ArgumentParser):
 def build_parser() -> argparse.ArgumentParser:
     parser = _Parser(
         prog="awin",
+        allow_abbrev=False,  # "--v" or "--t" are errors, never a prefix match
         description="Show a native approval window; exit 0 approved, 1 cancelled, "
                     "2 invalid input, 3 no window available.")
     parser.add_argument("--spec", metavar="FILE",

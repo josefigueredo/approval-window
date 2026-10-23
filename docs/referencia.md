@@ -60,6 +60,9 @@ Una palabra por stdout (`approved` o `cancelled`), solo con código 0 o 1.
 | `--timeout SEGUNDOS` | Espera menos; nunca más que el máximo (100 s) |
 | `--version` | Imprime `awin 0.1.0` |
 
+El código 0 quiere decir aprobado solo junto con `approved` en stdout. `-h` y `--version` también salen con 0 y no
+imprimen `approved`; el cableado nunca pasa opciones. Las opciones no se abrevian: `--v` o `--t 30` salen con 2.
+
 El máximo de 100 s sale de una medición: Cursor corta una herramienta a los 120 s y Copilot CLI no cortó a los 150 s
 ([mediciones](mediciones.md)).
 
