@@ -58,7 +58,7 @@ def _read(args, stdin) -> object:
         return json.loads(raw.decode("utf-8"))
     except UnicodeDecodeError:
         raise InvalidRequest("input is not valid UTF-8")
-    except ValueError:
+    except (ValueError, RecursionError):
         raise InvalidRequest("input is not valid JSON")
 
 

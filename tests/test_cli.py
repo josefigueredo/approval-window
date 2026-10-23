@@ -62,6 +62,13 @@ class CliTest(unittest.TestCase):
                 self.assertEqual(err.count("\n"), 1)
                 self.assertEqual(asker.calls, [])
 
+    def test_deeply_nested_json_exit_2(self):
+        code, out, err, asker = run(raw=b"[" * 100000)
+        self.assertEqual((code, out), (2, ""))
+        self.assertTrue(err.startswith("awin: "))
+        self.assertEqual(err.count("\n"), 1)
+        self.assertEqual(asker.calls, [])
+
     def test_extra_approval_keys_rejected(self):
         for key in ("approved", "yes"):
             code, _, _, asker = run(data={**MIN, key: True})
