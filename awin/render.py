@@ -32,7 +32,7 @@ _CSS = """
 @media (prefers-color-scheme: dark){:root{--fg:#f5f5f7;--muted:#a1a1a6;--bg:#2a2a2c;--panel:rgba(255,255,255,.07);--line:rgba(255,255,255,.12);--link:#4da3ff}}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg)}
-body{font:13px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;color:var(--fg);padding:4px 20px 14px;overflow-wrap:anywhere;word-break:normal}
+body{font:13px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;color:var(--fg);padding:20px 20px 14px;overflow-wrap:anywhere;word-break:normal}
 .layout{display:flex;gap:12px}
 .body{flex:1;min-width:0}
 .h{font-size:15px;font-weight:700;margin:2px 0 4px;letter-spacing:-.01em;overflow-wrap:anywhere}
@@ -110,8 +110,8 @@ def _lines(text: str, per_line: int) -> int:
 
 
 def window_height(req: Request) -> int:
-    """Page-area height in px; an estimate that errs tall, capped at MAX_HEIGHT."""
-    h = 40 + 20 * _lines(req.consequence, 38) + 17 * _lines(req.risk_note, 55)
+    """Page-area height in px; an estimate that errs tall, for the collapsed page, capped at MAX_HEIGHT."""
+    h = 56 + 20 * _lines(req.consequence, 38) + 17 * _lines(req.risk_note, 55)
     h += 10
     for label, value in req.summary:
         h += 14 + 16 * max(_lines(label, 20), _lines(value, 30))
@@ -119,8 +119,5 @@ def window_height(req: Request) -> int:
     if req.undo:
         h += 14 + 16 * _lines(req.undo, 30)
     if req.detail:
-        # Sized for the expanded block so opening it never clips the buttons.
-        h += 30 + sum(15 * _lines(line, 60) for line in req.detail)
-        if req.hidden_lines:
-            h += 15
+        h += 30  # the collapsed «Mostrar detalle» line only; expanding it scrolls the web view
     return min(MAX_HEIGHT, max(MIN_HEIGHT, int(h)))

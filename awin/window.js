@@ -1,6 +1,6 @@
 // awin's approval window: our own panel holding one web view (the page render.py builds, no script, nothing loaded)
 // and two native buttons. argv: <html file> <window title> <approve button label> <page height> <tint hex or "">.
-// The tint (style tag only) is a colored border on the approve button; it never makes it the default button.
+// The tint (style tag only) is a colored ring behind the approve button; it never makes it the default button.
 // Prints "approved" only when the approve button is clicked; anything else (Cancelar, Escape, the close button, a
 // failure) prints "cancelled". Cancelar has Escape; the approve button has no key equivalent, nothing is the
 // window's default button, and the approve button refuses first responder, so Return, Enter and Space cannot press it
@@ -131,18 +131,23 @@ function run(argv) {
   ok.keyEquivalent = '';
   ok.refusesFirstResponder = true;  // Tab cannot focus it, so Space cannot press it (Full Keyboard Access)
   ok.enabled = false;  // until the page has loaded
-  const tint = argv[4] || '';
-  if (/^#[0-9a-fA-F]{6}$/.test(tint)) {
-    const rgb = [1, 3, 5].map(function (i) { return parseInt(tint.substr(i, 2), 16) / 255; });
-    ok.wantsLayer = true;
-    ok.layer.borderColor = $.NSColor.colorWithSRGBRedGreenBlueAlpha(rgb[0], rgb[1], rgb[2], 1).CGColor;
-    ok.layer.borderWidth = 2;
-    ok.layer.cornerRadius = 6;
-  }
   web.loadHTMLStringBaseURL(html, $.NSURL.URLWithString('about:blank'));
 
   panel.contentView.addSubview(web);
   panel.contentView.addSubview(cancel);
+  const tint = argv[4] || '';
+  if (/^#[0-9a-fA-F]{6}$/.test(tint)) {
+    // A ring drawn behind Approve (an NSBox, so only NSColor crosses the JXA bridge; a Core Graphics color kills osascript).
+    const rgb = [1, 3, 5].map(function (i) { return parseInt(tint.substr(i, 2), 16) / 255; });
+    const ring = $.NSBox.alloc.initWithFrame($.NSMakeRect(width - 24 - 130 - 3, 15 - 3, 130 + 6, 28 + 6));
+    ring.boxType = $.NSBoxCustom;
+    ring.titlePosition = $.NSNoTitle;
+    ring.borderColor = $.NSColor.colorWithSRGBRedGreenBlueAlpha(rgb[0], rgb[1], rgb[2], 1);
+    ring.borderWidth = 2;
+    ring.cornerRadius = 8;
+    ring.fillColor = $.NSColor.clearColor;
+    panel.contentView.addSubview(ring);  // before the button, so it draws behind it
+  }
   panel.contentView.addSubview(ok);
   panel.center;
   panel.makeKeyAndOrderFront(null);

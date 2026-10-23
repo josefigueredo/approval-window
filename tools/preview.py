@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from awin.request import LEVELS, STYLES, parse  # noqa: E402
-from awin.window import DEFAULT_TIMEOUT, ask  # noqa: E402
+from awin.window import DEFAULT_TIMEOUT, Unavailable, ask  # noqa: E402
 
 
 def main() -> int:
@@ -25,7 +25,11 @@ def main() -> int:
                 "detail": [f"line {n}" for n in range(1, 8)],
                 "style": style,
             })
-            print(f"{level:20} {style:6} -> {'approved' if ask(req, DEFAULT_TIMEOUT) else 'cancelled'}")
+            try:
+                outcome = "approved" if ask(req, DEFAULT_TIMEOUT) else "cancelled"
+            except Unavailable as exc:
+                outcome = f"unavailable ({exc})"
+            print(f"{level:20} {style:6} -> {outcome}")
     return 0
 
 

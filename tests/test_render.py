@@ -131,9 +131,20 @@ class HeightTests(unittest.TestCase):
         self.assertGreaterEqual(h, 200)
         self.assertLess(h, MAX_HEIGHT)
 
+    def test_height_ignores_hidden_detail_lines(self):
+        self.assertEqual(window_height(build(detail=["l"] * 7)), window_height(build(detail=["l"])))
+        self.assertEqual(window_height(build(detail=["l"] * 7)), window_height(build()))
+
+    def test_page_top_padding_equals_left(self):
+        for style in STYLES:
+            self.assertIn("padding:20px 20px 14px", render_html(build(style=style)))
+
     def test_height_is_capped(self):
         self.assertEqual(MAX_HEIGHT, 560)
-        self.assertEqual(window_height(build(detail=["l"] * 10000)), 560)
+        self.assertEqual(window_height(build(detail=["l"] * 10000)), window_height(build(detail=["l"])))
+        big = build(consequence="x " * 70, risk_note="y " * 70, undo="u " * 100,
+                    summary=[["l" * 30, "v" * 100]] * 6, detail=["d"])
+        self.assertEqual(window_height(big), 560)
 
     def test_grows_with_content(self):
         small = window_height(build())

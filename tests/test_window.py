@@ -119,6 +119,8 @@ class WindowTests(unittest.TestCase):
         self.assertIn("ok.refusesFirstResponder = true;", src)
         self.assertIn("ok.enabled = false", src)
         self.assertEqual(src.count("NSBeep"), 1)
+        self.assertNotIn("CGColor", src)
+        self.assertNotIn(".layer.", src)
         self.assertNotIn("setDefaultButtonCell", src)
         self.assertNotIn("defaultButtonCell", src)
         self.assertNotIn("allowsContentJavaScript = true", src)
