@@ -57,6 +57,16 @@ class RenderTests(unittest.TestCase):
             for c in others:
                 self.assertNotIn(c, html)
 
+    def test_icon_glyph_contrasts_with_its_background(self):
+        expected = {"irreversible": "#fff", "partial": "#fff",
+                    "reversible_manual": "#1d1d1f", "reversible_planned": "#fff"}
+        for level, glyph in expected.items():
+            with self.subTest(level=level):
+                html = render_html(build(reversibility=level, undo="x", style="alert"))
+                rule = re.search(r"\.icon\{[^}]*\}", html).group(0)
+                self.assertIn("background:%s" % LEVEL_COLOR[level], rule)
+                self.assertIn("color:%s}" % glyph, rule)
+
     def test_each_style_has_its_marker(self):
         for style in STYLES:
             html = render_html(build(style=style))

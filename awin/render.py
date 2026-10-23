@@ -20,6 +20,14 @@ LEVEL_COLOR = {
     "reversible_planned": "#0a84ff",
 }
 
+# The glyph on the icon: white on the dark level colors, dark on the yellow one (white on #ffcc00 is unreadable).
+_ICON_FG = {
+    "irreversible": "#fff",
+    "partial": "#fff",
+    "reversible_manual": "#1d1d1f",
+    "reversible_planned": "#fff",
+}
+
 _ICON = {
     "irreversible": "!",
     "partial": "!",
@@ -37,7 +45,7 @@ body{font:13px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-ser
 .body{flex:1;min-width:0}
 .h{font-size:15px;font-weight:700;margin:2px 0 4px;letter-spacing:-.01em;overflow-wrap:anywhere}
 .risk{color:var(--muted);font-size:12px;line-height:1.4;overflow-wrap:anywhere}
-.icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;flex:none;background:__COLOR__;color:#fff}
+.icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;flex:none;background:__COLOR__;color:__ICON_FG__}
 .strip{width:4px;background:__COLOR__;border-radius:0 2px 2px 0;margin:6px 0;flex:none}
 .style-edge .layout{gap:16px}
 .style-edge{padding-left:0}
@@ -61,8 +69,9 @@ def _tint(hex_color: str) -> str:
     return "rgba(%d,%d,%d,.2)" % (r, g, b)
 
 
-def _css(color: str) -> str:
-    return (_CSS.replace("__COLOR__", color).replace("__TINT__", _tint(color))).strip()
+def _css(color: str, icon_fg: str) -> str:
+    return (_CSS.replace("__COLOR__", color).replace("__TINT__", _tint(color))
+            .replace("__ICON_FG__", icon_fg)).strip()
 
 
 def _row(label: str, value: str) -> str:
@@ -101,7 +110,7 @@ def render_html(req: Request) -> str:
         "<!doctype html>\n<html lang=\"es\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
         "<style>%s</style></head><body class=\"style-%s\"><div class=\"layout\">%s</div></body></html>\n"
-        % (_css(color), req.style, content)
+        % (_css(color, _ICON_FG[req.reversibility]), req.style, content)
     )
 
 
