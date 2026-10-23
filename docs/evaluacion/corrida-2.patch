@@ -1,0 +1,284 @@
+diff --git a/notes.py b/notes.py
+index 9c176fb..3dbc7f4 100644
+--- a/notes.py
++++ b/notes.py
+@@ -7,10 +7,66 @@ Stdlib only, Python 3.9 compatible.
+ """
+ import json
+ import os
++import shutil
++import subprocess
+ import sys
+ from pathlib import Path
+ 
+-USAGE = "usage: notes.py add <text> | list | clear"
++USAGE = ("usage: notes.py add <text> | list | clear\n"
++         "exit codes: 0 ok, 2 usage, 10 approval cancelled, "
++         "69 approval unavailable (needs macOS and awin), 70 invalid approval request or unexpected awin code")
++
++EXIT_USAGE = 2
++EXIT_CANCELLED = 10     # awin 1
++EXIT_UNAVAILABLE = 69   # awin 3 or awin missing
++EXIT_SOFTWARE = 70      # awin 2 or unexpected
++
++
++def count_phrase(n, one, many):
++    return one if n == 1 else many.format(n=n)
++
++
++def cut(text, limit):
++    return text if len(text) <= limit else text[: limit - 1] + "…"
++
++
++def clear_request(notes):
++    n = len(notes)
++    return {
++        "skill": "notes-cli",
++        "consequence": cut("Vas a borrar %s de notes-cli para siempre." % count_phrase(n, "tu nota", "tus {n} notas"), 140),
++        "reversibility": "irreversible",
++        "audience": "me",
++        "approve_label": "Apruebo %d" % n if n > 1 else "Apruebo",
++        "summary": [["Notas", str(n)], ["Archivo", cut(str(data_file()), 100)]],
++        "detail": [cut(t, 300) for t in notes],
++    }
++
++
++def default_run_awin(request):
++    """Run the real awin with the request on stdin; return its exit code (3 when awin is missing)."""
++    exe = shutil.which("awin")
++    if not exe:
++        return 3
++    return subprocess.run([exe], input=json.dumps(request), universal_newlines=True).returncode
++
++
++def ask(run_awin, request):
++    """Return None when approved, else the CLI exit code after printing one line."""
++    code = run_awin(request)
++    if code == 0:
++        return None
++    if code == 1:
++        print("not done: cancelled")
++        return EXIT_CANCELLED
++    if code == 3:
++        print("not done: cannot ask for approval; needs macOS and awin (install approval-window)", file=sys.stderr)
++        return EXIT_UNAVAILABLE
++    if code == 2:
++        print("not done: invalid approval request (bug in notes-cli)", file=sys.stderr)
++    else:
++        print("not done: unexpected awin exit code %s" % code, file=sys.stderr)
++    return EXIT_SOFTWARE
+ 
+ 
+ def data_file():
+@@ -46,25 +102,29 @@ def cmd_list():
+     return 0
+ 
+ 
+-def cmd_clear():
++def cmd_clear(run_awin):
+     notes = load()
+     if not notes:
+         print("nothing to clear")
+         return 0
++    refused = ask(run_awin, clear_request(notes))
++    if refused is not None:
++        return refused
+     save([])
+     print("deleted %d notes" % len(notes))
+     return 0
+ 
+ 
+-def main(argv):
++def main(argv, run_awin=None):
++    run_awin = run_awin or default_run_awin
+     if len(argv) >= 2 and argv[0] == "add":
+         return cmd_add(argv[1:])
+     if argv == ["list"]:
+         return cmd_list()
+     if argv == ["clear"]:
+-        return cmd_clear()
++        return cmd_clear(run_awin)
+     print(USAGE, file=sys.stderr)
+-    return 2
++    return EXIT_USAGE
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/tests/check_request.py b/tests/check_request.py
+new file mode 100644
+index 0000000..1063660
+--- /dev/null
++++ b/tests/check_request.py
+@@ -0,0 +1,58 @@
++"""Stdlib check of an awin request, to copy into a CLI's tests (Python 3.9+).
++
++Mirrors the protocol in references/protocol.md and adds two rules awin itself does not enforce:
++the consequence starts with "Vas a " and `reversible_planned` carries `undo`.
++Raises AssertionError naming the first problem.
++
++When the approval-window repo is importable, also run its real parser:
++    from awin.request import parse; assert parse(request).warnings == ()
++"""
++
++REQUIRED = ("skill", "consequence", "reversibility", "audience")
++OPTIONAL = ("risk_note", "undo", "summary", "detail", "approve_label", "style")
++LEVELS = ("irreversible", "partial", "reversible_manual", "reversible_planned")
++AUDIENCES = ("me", "team", "external")
++STYLES = ("alert", "edge", "tag")
++
++
++def _text(request, key, low, high):
++    value = request[key]
++    assert isinstance(value, str), "%s must be a string" % key
++    assert low <= len(value) <= high, "%s must be %d-%d characters, got %d" % (key, low, high, len(value))
++
++
++def check_request(request):
++    assert isinstance(request, dict), "request must be a dict"
++    unknown = set(request) - set(REQUIRED) - set(OPTIONAL)
++    assert not unknown, "unknown keys: %s" % ", ".join(sorted(unknown))
++    for key in REQUIRED:
++        assert key in request, "missing required key: %s" % key
++
++    _text(request, "skill", 1, 40)
++    _text(request, "consequence", 1, 140)
++    assert request["consequence"].startswith("Vas a "), "consequence must start with 'Vas a '"
++    assert request["reversibility"] in LEVELS, "reversibility must be one of %s" % (LEVELS,)
++    assert request["audience"] in AUDIENCES, "audience must be one of %s" % (AUDIENCES,)
++    if "style" in request:
++        assert request["style"] in STYLES, "style must be one of %s" % (STYLES,)
++    if request["reversibility"] == "reversible_planned":
++        assert request.get("undo"), "reversible_planned needs undo"
++    if "undo" in request:
++        _text(request, "undo", 0, 200)
++    if "risk_note" in request:
++        _text(request, "risk_note", 0, 140)
++    if "approve_label" in request:
++        _text(request, "approve_label", 1, 24)
++
++    summary = request.get("summary", [])
++    assert isinstance(summary, list) and len(summary) <= 6, "summary must be a list of at most 6 rows"
++    for row in summary:
++        assert isinstance(row, (list, tuple)) and len(row) == 2, "summary rows must be [label, value]"
++        label, value = row
++        assert isinstance(label, str) and 1 <= len(label) <= 30, "summary label must be 1-30 characters"
++        assert isinstance(value, str) and len(value) <= 100, "summary value must be at most 100 characters"
++
++    detail = request.get("detail", [])
++    assert isinstance(detail, list), "detail must be a list"
++    for line in detail:
++        assert isinstance(line, str) and len(line) <= 300, "detail lines must be strings of at most 300 characters"
+diff --git a/tests/test_notes.py b/tests/test_notes.py
+index 61a7e2f..04d2383 100644
+--- a/tests/test_notes.py
++++ b/tests/test_notes.py
+@@ -13,6 +13,17 @@ _spec = importlib.util.spec_from_file_location("notes", HERE / "notes.py")
+ notes = importlib.util.module_from_spec(_spec)
+ _spec.loader.exec_module(notes)
+ 
++from check_request import check_request  # noqa: E402  (tests/ is on sys.path under discover)
++
++
++class Fake:
++    def __init__(self, code=1):             # default: cancelled
++        self.code, self.requests = code, []
++
++    def __call__(self, request):
++        self.requests.append(request)
++        return self.code
++
+ 
+ class NotesTest(unittest.TestCase):
+     def setUp(self):
+@@ -23,10 +34,11 @@ class NotesTest(unittest.TestCase):
+         self.addCleanup(patcher.stop)
+         self.file = Path(self.tmp.name) / "notes.json"
+ 
+-    def run_main(self, argv):
++    def run_main(self, argv, fake=None):
++        self.fake = fake if fake is not None else Fake()
+         out, err = io.StringIO(), io.StringIO()
+         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+-            code = notes.main(argv)
++            code = notes.main(argv, run_awin=self.fake)
+         return code, out.getvalue(), err.getvalue()
+ 
+     def stored(self):
+@@ -57,7 +69,7 @@ class NotesTest(unittest.TestCase):
+     def test_clear_deletes_every_note(self):
+         self.run_main(["add", "a"])
+         self.run_main(["add", "b"])
+-        code, out, _ = self.run_main(["clear"])
++        code, out, _ = self.run_main(["clear"], Fake(0))
+         self.assertEqual(code, 0)
+         self.assertEqual(self.stored(), [])
+         self.assertIn("deleted 2 notes", out)
+@@ -68,6 +80,68 @@ class NotesTest(unittest.TestCase):
+         self.assertIn("nothing to clear", out)
+         self.assertFalse(self.file.exists())
+ 
++    def test_clear_asks_once_with_plural_consequence(self):
++        self.run_main(["add", "a"])
++        self.run_main(["add", "b"])
++        self.run_main(["clear"], Fake(0))
++        self.assertEqual(len(self.fake.requests), 1)
++        req = self.fake.requests[0]
++        check_request(req)
++        self.assertEqual(req["consequence"], "Vas a borrar tus 2 notas de notes-cli para siempre.")
++        self.assertEqual(req["reversibility"], "irreversible")
++        self.assertEqual(req["audience"], "me")
++        self.assertEqual(req["approve_label"], "Apruebo 2")
++
++    def test_clear_singular_consequence(self):
++        self.run_main(["add", "a"])
++        self.run_main(["clear"], Fake(0))
++        req = self.fake.requests[0]
++        check_request(req)
++        self.assertEqual(req["consequence"], "Vas a borrar tu nota de notes-cli para siempre.")
++        self.assertEqual(req["approve_label"], "Apruebo")
++
++    def test_long_note_is_cut_to_limits(self):
++        self.run_main(["add", "x" * 500])
++        self.run_main(["clear"], Fake(0))
++        check_request(self.fake.requests[0])
++
++    def test_clear_not_approved_leaves_data_and_maps_codes(self):
++        self.run_main(["add", "a"])
++        before = self.file.read_text(encoding="utf-8")
++        for awin_code, expected in ((1, 10), (2, 70), (3, 69), (7, 70)):
++            code, out, err = self.run_main(["clear"], Fake(awin_code))
++            self.assertEqual(code, expected, awin_code)
++            self.assertEqual(self.file.read_text(encoding="utf-8"), before)
++            self.assertEqual(len((out + err).strip().splitlines()), 1)
++            self.assertIn("not done", out + err)
++            self.assertEqual(len(self.fake.requests), 1)
++
++    def test_clear_default_fake_is_cancelled(self):
++        self.run_main(["add", "a"])
++        code, _, _ = self.run_main(["clear"])
++        self.assertEqual(code, 10)
++        self.assertEqual(self.stored(), ["a"])
++
++    def test_non_asking_commands_do_not_ask(self):
++        self.run_main(["add", "a"])
++        self.assertEqual(self.fake.requests, [])
++        self.run_main(["list"])
++        self.assertEqual(self.fake.requests, [])
++        self.run_main(["clear"], Fake(0))
++        self.run_main(["clear"])  # no-op: nothing left
++        self.assertEqual(self.fake.requests, [])
++
++    def test_default_run_awin_missing_returns_3_and_clear_prints_one_message(self):
++        self.run_main(["add", "a"])
++        with mock.patch("shutil.which", return_value=None):
++            self.assertEqual(notes.default_run_awin({}), 3)
++            out, err = io.StringIO(), io.StringIO()
++            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
++                code = notes.main(["clear"])
++        self.assertEqual(code, 69)
++        self.assertEqual(len((out.getvalue() + err.getvalue()).strip().splitlines()), 1)
++        self.assertEqual(self.stored(), ["a"])
++
+     def test_bad_arguments_print_usage(self):
+         for argv in ([], ["add"], ["clear", "x"], ["drop"]):
+             code, _, err = self.run_main(argv)

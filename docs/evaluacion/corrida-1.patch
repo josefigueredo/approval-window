@@ -1,0 +1,208 @@
+diff --git a/notes.py b/notes.py
+index 9c176fb..e7956e6 100644
+--- a/notes.py
++++ b/notes.py
+@@ -7,10 +7,22 @@ Stdlib only, Python 3.9 compatible.
+ """
+ import json
+ import os
++import shutil
++import subprocess
+ import sys
+ from pathlib import Path
+ 
+ USAGE = "usage: notes.py add <text> | list | clear"
++NO_AWIN = "notes-cli: awin is not installed; install approval-window first"
++
++
++def default_run_awin(request):
++    """Run the real awin with the request on stdin; return its exit code."""
++    exe = shutil.which("awin")
++    if not exe:
++        print(NO_AWIN, file=sys.stderr)
++        return 3
++    return subprocess.run([exe], input=json.dumps(request), universal_newlines=True).returncode
+ 
+ 
+ def data_file():
+@@ -46,23 +58,49 @@ def cmd_list():
+     return 0
+ 
+ 
+-def cmd_clear():
++def clear_request(notes):
++    n = len(notes)
++    return {
++        "skill": "notes-cli",
++        "consequence": "Vas a borrar %s de notes-cli para siempre." % (
++            "tu nota" if n == 1 else "tus %d notas" % n),
++        "reversibility": "irreversible",
++        "audience": "me",
++        "approve_label": "Apruebo %d" % n,
++        "summary": [["Notas", str(n)], ["Archivo", str(data_file())[-100:]]],
++        "detail": [text[:300] for text in notes],
++    }
++
++
++def cmd_clear(run_awin):
+     notes = load()
+     if not notes:
+         print("nothing to clear")
+         return 0
+-    save([])
+-    print("deleted %d notes" % len(notes))
+-    return 0
+-
+-
+-def main(argv):
++    code = run_awin(clear_request(notes))
++    if code == 0:
++        save([])
++        print("deleted %d notes" % len(notes))
++        return 0
++    if code == 1:
++        print("not done: cancelled")
++    elif code == 2:
++        print("not done: invalid approval request (bug in notes-cli)", file=sys.stderr)
++    elif code == 3:
++        print("not done: no approval window available on this machine", file=sys.stderr)
++    else:
++        print("not done: unexpected awin exit code %s" % code, file=sys.stderr)
++    return code if code in (1, 2, 3) else 1
++
++
++def main(argv, run_awin=None):
++    run_awin = run_awin or default_run_awin
+     if len(argv) >= 2 and argv[0] == "add":
+         return cmd_add(argv[1:])
+     if argv == ["list"]:
+         return cmd_list()
+     if argv == ["clear"]:
+-        return cmd_clear()
++        return cmd_clear(run_awin)
+     print(USAGE, file=sys.stderr)
+     return 2
+ 
+diff --git a/tests/test_notes.py b/tests/test_notes.py
+index 61a7e2f..0712a0e 100644
+--- a/tests/test_notes.py
++++ b/tests/test_notes.py
+@@ -14,6 +14,21 @@ notes = importlib.util.module_from_spec(_spec)
+ _spec.loader.exec_module(notes)
+ 
+ 
++try:
++    from awin.request import parse
++except ImportError:
++    parse = None
++
++
++class Fake:
++    def __init__(self, code):
++        self.code, self.requests = code, []
++
++    def __call__(self, request):
++        self.requests.append(request)
++        return self.code
++
++
+ class NotesTest(unittest.TestCase):
+     def setUp(self):
+         self.tmp = tempfile.TemporaryDirectory()
+@@ -23,10 +38,12 @@ class NotesTest(unittest.TestCase):
+         self.addCleanup(patcher.stop)
+         self.file = Path(self.tmp.name) / "notes.json"
+ 
+-    def run_main(self, argv):
++    def run_main(self, argv, run_awin=None):
++        # never reach the real awin from tests
++        run_awin = run_awin or Fake(1)
+         out, err = io.StringIO(), io.StringIO()
+         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+-            code = notes.main(argv)
++            code = notes.main(argv, run_awin)
+         return code, out.getvalue(), err.getvalue()
+ 
+     def stored(self):
+@@ -54,19 +71,78 @@ class NotesTest(unittest.TestCase):
+         self.assertEqual((code, out), (0, ""))
+         self.assertFalse(self.file.exists())
+ 
+-    def test_clear_deletes_every_note(self):
++    def test_clear_deletes_every_note_when_approved(self):
+         self.run_main(["add", "a"])
+         self.run_main(["add", "b"])
+-        code, out, _ = self.run_main(["clear"])
++        fake = Fake(0)
++        code, out, _ = self.run_main(["clear"], fake)
+         self.assertEqual(code, 0)
+         self.assertEqual(self.stored(), [])
+         self.assertIn("deleted 2 notes", out)
++        self.assertEqual(len(fake.requests), 1)
++
++    def test_clear_writes_nothing_unless_approved(self):
++        self.run_main(["add", "a"])
++        self.run_main(["add", "b"])
++        before = self.file.read_text(encoding="utf-8")
++        for awin_code in (1, 2, 3, 7):
++            fake = Fake(awin_code)
++            code, out, _ = self.run_main(["clear"], fake)
++            self.assertEqual(code, awin_code if awin_code in (1, 2, 3) else 1)
++            self.assertNotIn("deleted", out)
++            self.assertEqual(self.file.read_text(encoding="utf-8"), before)
++            self.assertEqual(len(fake.requests), 1)
++
++    def test_clear_request_content(self):
++        self.run_main(["add", "a"])
++        self.run_main(["add", "b"])
++        fake = Fake(1)
++        self.run_main(["clear"], fake)
++        req = fake.requests[0]
++        self.assertEqual(req["consequence"], "Vas a borrar tus 2 notas de notes-cli para siempre.")
++        self.assertEqual(req["reversibility"], "irreversible")
++        self.assertEqual(req["audience"], "me")
++        self.assertEqual(req["approve_label"], "Apruebo 2")
++        self.assertEqual(req["detail"], ["a", "b"])
++        self.assertLessEqual(len(req["consequence"]), 140)
++        self.assertNotIn("undo", req)
++
++    def test_clear_request_singular_and_long_note(self):
++        self.run_main(["add", "x" * 500])
++        fake = Fake(1)
++        self.run_main(["clear"], fake)
++        req = fake.requests[0]
++        self.assertEqual(req["consequence"], "Vas a borrar tu nota de notes-cli para siempre.")
++        self.assertEqual(len(req["detail"][0]), 300)
++        self.assertLessEqual(len(req["summary"][1][1]), 100)
++
++    def test_clear_request_is_valid(self):
++        if parse is None:
++            self.skipTest("awin.request not importable; checked by hand against references/protocol.md")
++        self.run_main(["add", "a"])
++        fake = Fake(1)
++        self.run_main(["clear"], fake)
++        self.assertEqual(parse(fake.requests[0]).warnings, ())
+ 
+     def test_clear_with_no_notes_is_a_no_op(self):
+-        code, out, _ = self.run_main(["clear"])
++        fake = Fake(0)
++        code, out, _ = self.run_main(["clear"], fake)
+         self.assertEqual(code, 0)
+         self.assertIn("nothing to clear", out)
+         self.assertFalse(self.file.exists())
++        self.assertEqual(fake.requests, [])
++
++    def test_add_and_list_never_ask(self):
++        fake = Fake(0)
++        self.run_main(["add", "a"], fake)
++        self.run_main(["list"], fake)
++        self.assertEqual(fake.requests, [])
++
++    def test_default_run_awin_missing_returns_3(self):
++        err = io.StringIO()
++        with mock.patch("shutil.which", return_value=None), contextlib.redirect_stderr(err):
++            self.assertEqual(notes.default_run_awin({}), 3)
++        self.assertIn("awin is not installed", err.getvalue())
+ 
+     def test_bad_arguments_print_usage(self):
+         for argv in ([], ["add"], ["clear", "x"], ["drop"]):
