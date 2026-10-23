@@ -119,15 +119,16 @@ class WindowTests(unittest.TestCase):
         end = src.find("\n    '", start + 1)
         return src[start:end if end != -1 else len(src)]
 
-    def test_script_cancels_every_navigation_it_did_not_start(self):
+    def test_script_blocks_navigation_it_did_not_start(self):
         src = window.WINDOW_JS.read_text(encoding="utf-8")
-        policy = self._method(src, "webView:decidePolicyForNavigationAction:decisionHandler:")
-        self.assertIn("expectedLoads > 0", policy)
-        self.assertIn("'about:blank'", policy)
-        self.assertIn("POLICY_CANCEL", policy)
-        self.assertIn("POLICY_ALLOW", policy)
-        self.assertIn("const POLICY_CANCEL = 0;", src)
-        self.assertIn("const POLICY_ALLOW = 1;", src)
+        # JXA cannot call a WebKit block, and declaring decidePolicy under WKNavigationDelegate kills osascript
+        # (-2700, measured 2026-10-23): no policy delegate at all.
+        self.assertNotIn("decidePolicy", src)
+        self.assertNotIn("decisionHandler", src)
+        self.assertIn("protocols: ['WKNavigationDelegate', 'WKUIDelegate']", src)
+        # dropping a file is what could navigate: the web view accepts no drags
+        self.assertIn("web.unregisterDraggedTypes;", src)
+        self.assertLess(src.index("initWithFrameConfiguration"), src.index("web.unregisterDraggedTypes;"))
         # every load awin starts goes through loadPage, which counts it
         self.assertEqual(src.count("loadHTMLStringBaseURL"), 1)
         load = src[src.index("function loadPage"):]
@@ -137,11 +138,27 @@ class WindowTests(unittest.TestCase):
         self.assertIn("tainted = true", start)
         self.assertIn("ok.enabled = false", start)
         self.assertIn("generation += 1", start)
-        # no link opens anything any more: the page has no links (every caller string is escaped text)
+        # no link opens anything: the page has no links (every caller string is escaped text)
         create = self._method(src, "webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:")
         self.assertNotIn("openURL", src)
         self.assertNotIn("'https'", src)
         self.assertIn("return $();", create)
+
+    def test_script_invalidates_a_pending_enable_timer(self):
+        src = window.WINDOW_JS.read_text(encoding="utf-8")
+        self.assertIn("function cancelEnable()", src)
+        cancel = src[src.index("function cancelEnable()"):]
+        cancel = cancel[:cancel.index("\n}\n")]
+        self.assertIn("enableTimer.invalidate", cancel)
+        self.assertIn("enableTimer = null", cancel)
+        for selector in ("webView:didStartProvisionalNavigation:", "webViewWebContentProcessDidTerminate:",
+                         "webView:didFinishNavigation:"):
+            with self.subTest(selector=selector):
+                self.assertIn("cancelEnable();", self._method(src, selector))
+        finish = self._method(src, "webView:didFinishNavigation:")
+        self.assertIn("enableTimer = $.NSTimer.timerWithTimeIntervalTargetSelectorUserInfoRepeats", finish)
+        enable = self._method(src, "enableApprove:")
+        self.assertIn("enableTimer = null", enable)
 
     def test_script_enables_approve_only_after_a_delay_in_the_modal_run_loop(self):
         src = window.WINDOW_JS.read_text(encoding="utf-8")
@@ -151,7 +168,7 @@ class WindowTests(unittest.TestCase):
         self.assertIn("const APPROVE_DELAY = 0.7;", src)
         self.assertIn("timerWithTimeIntervalTargetSelectorUserInfoRepeats(APPROVE_DELAY", finish)
         # runModalForWindow runs NSModalPanelRunLoopMode: a default-mode timer would never fire
-        self.assertIn("addTimerForMode(", finish)
+        self.assertIn("addTimerForMode(enableTimer, $.NSRunLoopCommonModes)", finish)
         self.assertIn("$.NSRunLoopCommonModes", finish)
         self.assertNotIn("afterDelay", src)
         self.assertNotIn("scheduledTimer", src)

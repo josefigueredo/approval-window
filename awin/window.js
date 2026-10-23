@@ -13,12 +13,11 @@ let result = 'cancelled';
 // 2026-10-14). The load is asynchronous, so a navigation delegate decides; a failure reloads once, then only Cancelar
 // is left. The web view holds its delegate weakly, so these globals keep it alive.
 // Approve turns on APPROVE_DELAY seconds after the load finished, not at once, so a click already on its way when the
-// window appears cannot approve. Only the loads awin starts (the page, and one reload) may navigate the web view; any
-// other navigation (a file dropped on it, say) is cancelled, and if one starts anyway the page is tainted and Approve
-// never turns on again.
+// window appears cannot approve. Only the loads awin starts (the page, and one reload) may navigate the web view: it
+// accepts no drags (a dropped file would replace the page), and if any other navigation starts anyway the page is
+// tainted and Approve never turns on again. (There is no navigation policy delegate: JXA cannot call the completion
+// block WebKit passes it, and declaring that method kills osascript; measured 2026-10-23.)
 const APPROVE_DELAY = 0.7;
-const POLICY_CANCEL = 0;  // WKNavigationActionPolicyCancel
-const POLICY_ALLOW = 1;   // WKNavigationActionPolicyAllow
 let ok = null;
 let page = null;
 let pageView = null;
@@ -28,6 +27,14 @@ let expectedLoads = 0;  // loads awin started that have not begun yet
 let generation = 0;     // bumped by every navigation start and by a web process crash
 let armed = -1;         // the generation the pending enable timer belongs to
 let tainted = false;    // a navigation awin did not start began: Apruebo stays disabled
+let enableTimer = null; // the pending enable, invalidated by any navigation start, crash or newer load
+
+function cancelEnable() {
+  if (enableTimer) {
+    enableTimer.invalidate;
+    enableTimer = null;
+  }
+}
 
 function loadPage() {
   expectedLoads += 1;
@@ -43,35 +50,16 @@ function reloadOnce(why) {
   }
 }
 
-function decide(handler, policy) {
-  try {
-    handler(policy);
-  } catch (e) {  // the navigation then never proceeds: Apruebo stays disabled, only Cancelar is left
-    console.log('awin: could not answer a navigation (' + e + '); Apruebo stays disabled');
-  }
-}
-
 ObjC.registerSubclass({
   name: 'AwinPageDelegate',
   superclass: 'NSObject',
   protocols: ['WKNavigationDelegate', 'WKUIDelegate'],
   methods: {
-    // Only the loads awin started (about:blank with the page) may navigate; anything else is cancelled.
-    'webView:decidePolicyForNavigationAction:decisionHandler:': {
-      types: ['void', ['id', 'id', 'id']],
-      implementation: function (view, action, handler) {
-        const url = action.request.URL;
-        const own = expectedLoads > 0 && !tainted && url && !url.isNil() && url.absoluteString.js === 'about:blank';
-        if (!own) {
-          console.log('awin: blocked a navigation the approval window did not start');
-        }
-        decide(handler, own ? POLICY_ALLOW : POLICY_CANCEL);
-      },
-    },
-    // A navigation that starts without awin having started it taints the page (defense if the policy above fails).
+    // A navigation that starts without awin having started it taints the page: Apruebo never turns on again.
     'webView:didStartProvisionalNavigation:': {
       types: ['void', ['id', 'id']],
       implementation: function (view, navigation) {
+        cancelEnable();
         generation += 1;
         if (ok) { ok.enabled = false; }
         if (expectedLoads > 0) {
@@ -93,16 +81,18 @@ ObjC.registerSubclass({
     'webView:didFinishNavigation:': {
       types: ['void', ['id', 'id']],
       implementation: function (view, navigation) {
+        cancelEnable();
         if (!ok || tainted) { return; }
         armed = generation;
-        const timer = $.NSTimer.timerWithTimeIntervalTargetSelectorUserInfoRepeats(APPROVE_DELAY, pageDelegate, 'enableApprove:', null, false);
-        $.NSRunLoop.currentRunLoop.addTimerForMode(timer, $.NSRunLoopCommonModes);
+        enableTimer = $.NSTimer.timerWithTimeIntervalTargetSelectorUserInfoRepeats(APPROVE_DELAY, pageDelegate, 'enableApprove:', null, false);
+        $.NSRunLoop.currentRunLoop.addTimerForMode(enableTimer, $.NSRunLoopCommonModes);
       },
     },
     // Fired by the timer: enables Approve only if nothing navigated, crashed or tainted the page since the load finished.
     'enableApprove:': {
       types: ['void', ['id']],
       implementation: function (timer) {
+        enableTimer = null;
         if (ok && !tainted && armed === generation) { ok.enabled = true; }
       },
     },
@@ -117,7 +107,8 @@ ObjC.registerSubclass({
     'webViewWebContentProcessDidTerminate:': {
       types: ['void', ['id']],
       implementation: function (view) {
-        generation += 1;  // a pending enable timer no longer applies
+        cancelEnable();
+        generation += 1;  // a pending enable no longer applies
         if (ok) { ok.enabled = false; }
         reloadOnce('web content process ended');
       },
@@ -171,6 +162,7 @@ function run(argv) {
   const config = $.WKWebViewConfiguration.alloc.init;
   config.defaultWebpagePreferences.allowsContentJavaScript = false;
   const web = $.WKWebView.alloc.initWithFrameConfiguration($.NSMakeRect(0, bar, width, height), config);
+  web.unregisterDraggedTypes;  // a file dropped on the page would navigate away from it
   web.setValueForKey($.NSNumber.numberWithBool(false), 'drawsBackground');  // the window's own background shows through
   page = html;
   pageView = web;
