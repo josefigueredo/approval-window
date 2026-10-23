@@ -47,9 +47,9 @@ One word on stdout (`approved` or `cancelled`), only with exit 0 or 1.
 | Exit | Meaning | What the caller does |
 |---|---|---|
 | `0` | approved: the person clicked Approve | Act |
-| `1` | cancelled, closed, timed out, or something failed | Write nothing; report "cancelled"; do not retry |
+| `1` | cancelled: Cancelar, Escape, the close button, or the timeout | Write nothing; report "cancelled"; do not retry |
 | `2` | invalid input; the window never opened; reason on stderr | Write nothing; it is a bug in the caller |
-| `3` | no window available (not macOS, no `/usr/bin/osascript`, osascript failed) | Refuse with a clear message |
+| `3` | no window available: not macOS, no `/usr/bin/osascript`, or the window could not be shown or failed | Refuse with a clear message |
 
 A missing `awin` on the PATH is handled by the caller as exit 3.
 
@@ -67,8 +67,12 @@ Exit 0 means approved only together with stdout `approved`. `-h` and `--version`
 ## Guarantees
 
 - Nothing approves without a click: no `--yes`, environment variable, pre-approval file or default button. Enter never
-  approves; Escape, closing, a failure and the timeout all mean `cancelled`.
-- Approve is disabled until the page has loaded. One system beep when the window appears, at every level.
+  approves; Escape, closing and the timeout mean `cancelled` (1); a window that could not be shown or failed is exit 3.
+  Neither ever approves.
+- Approve is disabled until the page has loaded, and turns on 0.7 s later, so a click already on its way when the window
+  appears cannot approve. It stays disabled if the page's process dies meanwhile. The page cannot be replaced: any
+  navigation awin did not start (a file dropped on the window, say) is cancelled. One system beep when the window
+  appears, at every level.
 - It does **not** guarantee the person reads. That is why skills ask rarely and write consequences worth reading.
 
 ## Minimal valid request

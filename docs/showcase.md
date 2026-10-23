@@ -6,8 +6,8 @@ Cada caso: qué le decís al agente, qué corre, qué ves y qué pasa si falla. 
 ## Lo que lo distingue
 
 - **Un clic humano o nada.** No hay forma de aprobar por programa: ni opción, ni variable, ni archivo.
-- **Cancelar es lo que pasa por defecto.** Escape, cerrar, un fallo o el tiempo vencido devuelven `cancelled` (código 1),
-  nunca `approved`.
+- **Cancelar es lo que pasa por defecto.** Escape, cerrar o el tiempo vencido devuelven `cancelled` (código 1); si la
+  ventana no se pudo mostrar o falló, el código es 3. Nunca `approved`.
 - **La skill manda datos, la ventana decide cómo se ven.** Todo texto se escapa; no se ejecuta nada de lo que se muestre.
 - **Dice qué tan reversible es.** Cuatro niveles, cada uno con su color y su texto.
 

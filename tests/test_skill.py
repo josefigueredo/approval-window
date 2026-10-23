@@ -81,6 +81,25 @@ class SkillTest(unittest.TestCase):
             self.assertNotIn("skipTest", doc.read_text(encoding="utf-8"), doc.name)
 
 
+class FailureWordingTest(unittest.TestCase):
+    """A window that could not be shown or failed is exit 3, never «cancelled (1)»; Approve waits 0.7 s."""
+
+    def test_failure_is_3_not_cancelled(self):
+        phrases = {"references/protocol.md": "could not be shown or failed",
+                   "docs/referencia.md": "no se pudo mostrar o falló",
+                   "docs/showcase.md": "no se pudo mostrar o falló"}
+        for name, phrase in phrases.items():
+            text = (ROOT / name).read_text(encoding="utf-8")
+            with self.subTest(doc=name):
+                self.assertNotRegex(text, r"(?i)(something failed|a failure|un fallo|falló algo)[^\n]*(cancel|\(1\)|código 1)")
+                self.assertNotRegex(text, r"(?i)\| `1` \|[^\n]*(fail|fall)")
+                self.assertRegex(text, r"(?s)%s.{0,40}3|\| `3` \|[^\n]*%s" % (phrase, phrase))
+
+    def test_approve_delay_is_documented(self):
+        self.assertIn("0,7 s", (ROOT / "docs" / "referencia.md").read_text(encoding="utf-8"))
+        self.assertIn("0.7 s", (ROOT / "references" / "protocol.md").read_text(encoding="utf-8"))
+
+
 def load_checker():
     spec = importlib.util.spec_from_file_location("check_request", CHECKER)
     module = importlib.util.module_from_spec(spec)

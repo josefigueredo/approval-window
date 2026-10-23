@@ -48,9 +48,9 @@ Una palabra por stdout (`approved` o `cancelled`), solo con código 0 o 1.
 | Código | Significa |
 |---|---|
 | `0` | `approved`: la persona hizo clic en Apruebo |
-| `1` | `cancelled`: canceló, cerró, venció el tiempo o falló algo |
+| `1` | `cancelled`: tocó Cancelar o Escape, cerró la ventana o venció el tiempo |
 | `2` | Entrada inválida: la ventana nunca se abre; el motivo va por stderr |
-| `3` | No hay ventana disponible: no es macOS, falta `/usr/bin/osascript` o `osascript` falló |
+| `3` | No hay ventana disponible: no es macOS, falta `/usr/bin/osascript`, o la ventana no se pudo mostrar o falló |
 
 ## Opciones
 
@@ -69,6 +69,11 @@ El máximo de 100 s sale de una medición: Cursor corta una herramienta a los 12
 ## Qué garantiza y qué no
 
 - Nada aprueba sin un clic: no hay `--yes`, variable de entorno, archivo de preaprobación ni botón por defecto. Enter no
-  aprueba; Escape, cerrar, un fallo y el tiempo vencido son `cancelled`.
-- Apruebo está deshabilitado hasta que la página terminó de cargar. Suena un `NSBeep` al abrirse, en todos los niveles.
+  aprueba; Escape, cerrar y el tiempo vencido son `cancelled` (código 1); si la ventana no se pudo mostrar o falló, el
+  código es 3. Ninguno de los dos aprueba.
+- Apruebo está deshabilitado hasta que la página terminó de cargar, y se habilita 0,7 s después: un clic que ya venía
+  en camino cuando apareció la ventana no aprueba. Si el proceso de la página se cae en ese rato, sigue deshabilitado.
+- La página no se puede reemplazar: cualquier navegación que no empezó `awin` (por ejemplo, un archivo arrastrado a la
+  ventana) se cancela.
+- Suena un `NSBeep` al abrirse, en todos los niveles.
 - **No** garantiza que la persona lea: ver el [caso medido](showcase.md#4-lo-que-midió-la-ventana-real).
