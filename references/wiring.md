@@ -49,7 +49,8 @@ them. A mapping that avoids the common ones:
 | other | unexpected | `not done: unexpected awin exit code N` | 70 |
 
 When awin is missing, print **one** message. `default_run_awin` returns 3 silently and the code-3 branch prints the
-single message that says what to install; do not print in both places.
+single message that says what to install; do not print in both places. The same goes for an `awin` that is on the PATH
+but cannot start: catch `OSError` around `subprocess.run` and return 3, so it is "cannot ask", never a traceback.
 
 ## Updating existing tests
 

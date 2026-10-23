@@ -6,6 +6,7 @@ import json
 import re
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from awin.request import InvalidRequest, parse
 
@@ -52,6 +53,22 @@ class SkillTest(unittest.TestCase):
                     self.assertEqual(request.warnings, ())
                     self.assertTrue(request.consequence.startswith("Vas a "), request.consequence)
         self.assertGreaterEqual(count, 4)
+
+    def test_wiring_snippet_treats_oserror_as_cannot_ask(self):
+        text = SKILL.read_text(encoding="utf-8")
+        block = next(b for b in re.findall(r"```python\n(.*?)```", text, re.S) if "def default_run_awin" in b)
+        start = block.index("def default_run_awin")
+        end = block.index("\ndef ", start + 1)
+        namespace = {}
+        exec("import json, shutil, subprocess, sys\n" + block[start:end], namespace)
+        run_awin = namespace["default_run_awin"]
+        with mock.patch("shutil.which", return_value=None):
+            self.assertEqual(run_awin({"skill": "x"}), 3)
+        for exc in (PermissionError("denied"), OSError("exec format error")):
+            with mock.patch("shutil.which", return_value="/x/awin"), \
+                    mock.patch("subprocess.run", side_effect=exc):
+                self.assertEqual(run_awin({"skill": "x"}), 3)
+        self.assertIn("OSError", (ROOT / "references" / "wiring.md").read_text(encoding="utf-8"))
 
     def test_never_teaches_a_bypass(self):
         text = SKILL.read_text(encoding="utf-8")

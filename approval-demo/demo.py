@@ -18,7 +18,13 @@ SAMPLE = [
     {"id": 2, "title": "Meeting notes", "archived": False, "shared": False},
     {"id": 3, "title": "Ideas", "archived": False, "shared": False},
 ]
-NO_AWIN = "approval-demo: awin is not installed; run install.sh from the approval-window repo"
+# Exit codes of this CLI. awin's own codes are mapped, never passed through (awin 2 is not a usage error).
+EXIT_USAGE = 2
+EXIT_CANCELLED = 10      # awin 1
+EXIT_UNAVAILABLE = 69    # awin 3, awin missing or not runnable (sysexits EX_UNAVAILABLE)
+EXIT_SOFTWARE = 70       # awin 2 or anything unexpected (sysexits EX_SOFTWARE)
+CANNOT_ASK = ("not done: cannot ask for approval; needs macOS and awin "
+              "(run install.sh from the approval-window repo)")
 
 
 def data_file():
@@ -42,6 +48,14 @@ def save(notes):
 
 def titles(notes):
     return ", ".join(n["title"] for n in notes)
+
+
+def notes_phrase(n):
+    return "1 nota" if n == 1 else "%d notas" % n
+
+
+def notes_word(n):
+    return "1 note" if n == 1 else "%d notes" % n
 
 
 def _request(**kw):
@@ -84,7 +98,7 @@ def plan_rename(notes):
     if not notes:
         return None
     req = _request(
-        consequence="Vas a renombrar %d notas agregando el prefijo [demo]." % len(notes),
+        consequence="Vas a renombrar %s agregando el prefijo [demo]." % notes_phrase(len(notes)),
         reversibility="reversible_manual", audience="me", style="edge",
         summary=[["Notas", str(len(notes))], ["Prefijo", "[demo] "]])
 
@@ -93,16 +107,17 @@ def plan_rename(notes):
             if not n["title"].startswith("[demo] "):
                 n["title"] = "[demo] " + n["title"]
         save(notes)
-        return "renamed %d notes" % len(notes)
+        return "renamed " + notes_word(len(notes))
     return req, apply
 
 
 def plan_archive(notes):
-    todo = notes
+    todo = [n for n in notes if not n["archived"]]
     if not todo:
         return None
+    verb = "deja" if len(todo) == 1 else "dejan"
     req = _request(
-        consequence="Vas a archivar %d notas; dejan de verse en la lista." % len(todo),
+        consequence="Vas a archivar %s; %s de verse en la lista." % (notes_phrase(len(todo)), verb),
         reversibility="reversible_planned", audience="me", style="alert",
         undo="demo.py unarchive-notes",
         summary=[["Notas", str(len(todo))], ["Títulos", titles(todo)[:100]]])
@@ -111,16 +126,17 @@ def plan_archive(notes):
         for n in todo:
             n["archived"] = True
         save(notes)
-        return "archived %d notes" % len(todo)
+        return "archived " + notes_word(len(todo))
     return req, apply
 
 
 def plan_unarchive(notes):
-    todo = notes
+    todo = [n for n in notes if n["archived"]]
     if not todo:
         return None
+    archived = "1 nota archivada" if len(todo) == 1 else "%d notas archivadas" % len(todo)
     req = _request(
-        consequence="Vas a restaurar %d notas archivadas." % len(todo),
+        consequence="Vas a restaurar %s." % archived,
         reversibility="reversible_planned", audience="me", style="edge",
         undo="demo.py archive-notes",
         summary=[["Notas", str(len(todo))], ["Títulos", titles(todo)[:100]]])
@@ -129,13 +145,19 @@ def plan_unarchive(notes):
         for n in todo:
             n["archived"] = False
         save(notes)
-        return "unarchived %d notes" % len(todo)
+        return "unarchived " + notes_word(len(todo))
     return req, apply
 
 
 def plan_reset(notes):
+    if not notes:
+        consequence = "Vas a reemplazar tu lista vacía por las %d notas de ejemplo." % len(SAMPLE)
+    elif len(notes) == 1:
+        consequence = "Vas a reemplazar tu nota por las %d de ejemplo." % len(SAMPLE)
+    else:
+        consequence = "Vas a reemplazar tus %d notas por las %d de ejemplo." % (len(notes), len(SAMPLE))
     req = _request(
-        consequence="Vas a reemplazar tus %d notas por las %d de ejemplo." % (len(notes), len(SAMPLE)),
+        consequence=consequence,
         reversibility="irreversible", audience="me", style="alert",
         summary=[["Notas actuales", str(len(notes))], ["Notas de ejemplo", str(len(SAMPLE))]])
 
@@ -156,17 +178,40 @@ PLANS = {
 
 
 def default_run_awin(request):
-    """Run the real awin with the request on stdin; return its exit code."""
+    """Run the real awin with the request on stdin; return its exit code.
+
+    3 (cannot ask) when awin is missing or cannot be started; silent, the caller prints the one message.
+    """
     exe = shutil.which("awin")
     if not exe:
-        print(NO_AWIN, file=sys.stderr)
         return 3
-    return subprocess.run([exe], input=json.dumps(request), universal_newlines=True).returncode
+    try:
+        return subprocess.run([exe], input=json.dumps(request), universal_newlines=True).returncode
+    except OSError:
+        return 3
+
+
+def ask(run_awin, request):
+    """Return None when approved, else this CLI's exit code after printing one line."""
+    code = run_awin(request)
+    if code == 0:
+        return None
+    if code == 1:
+        print("not done: cancelled")
+        return EXIT_CANCELLED
+    if code == 3:
+        print(CANNOT_ASK, file=sys.stderr)
+        return EXIT_UNAVAILABLE
+    if code == 2:
+        print("not done: invalid approval request (bug in approval-demo)", file=sys.stderr)
+    else:
+        print("not done: unexpected awin exit code %s" % code, file=sys.stderr)
+    return EXIT_SOFTWARE
 
 
 def usage():
     print("usage: demo.py list | %s" % " | ".join(ACTIONS), file=sys.stderr)
-    return 2
+    return EXIT_USAGE
 
 
 def main(argv, run_awin=None):
@@ -183,20 +228,11 @@ def main(argv, run_awin=None):
         print("nothing to do: no matching notes")
         return 0
     request, apply = plan
-    code = (run_awin or default_run_awin)(request)
-    if code == 0:
-        print("done: " + apply())
-        return 0
-    if code == 1:
-        print("not done: cancelled")
-    elif code == 2:
-        print("not done: the request was invalid (bug in approval-demo)")
-    elif code == 3:
-        print("not done: no approval window available on this machine")
-    else:
-        print("not done: unexpected awin exit code %s" % code)
-        return 1
-    return code
+    refused = ask(run_awin or default_run_awin, request)
+    if refused is not None:
+        return refused  # nothing written
+    print("done: " + apply())
+    return 0
 
 
 if __name__ == "__main__":

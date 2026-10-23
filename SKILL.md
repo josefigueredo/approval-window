@@ -93,11 +93,14 @@ EXIT_SOFTWARE = 70      # awin 2 or anything unexpected (sysexits EX_SOFTWARE)
 
 
 def default_run_awin(request):
-    """Run the real awin with the request on stdin; return its exit code (3 when awin is missing)."""
+    """Run the real awin with the request on stdin; return its exit code (3 when awin cannot run)."""
     exe = shutil.which("awin")
     if not exe:
         return 3                            # the caller prints the one message
-    return subprocess.run([exe], input=json.dumps(request), universal_newlines=True).returncode
+    try:
+        return subprocess.run([exe], input=json.dumps(request), universal_newlines=True).returncode
+    except OSError:                         # found but not runnable: cannot ask, never approve
+        return 3
 
 
 def ask(run_awin, request):
