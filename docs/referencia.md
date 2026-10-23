@@ -72,8 +72,10 @@ El máximo de 100 s sale de una medición: Cursor corta una herramienta a los 12
   aprueba; Escape, cerrar y el tiempo vencido son `cancelled` (código 1); si la ventana no se pudo mostrar o falló, el
   código es 3. Ninguno de los dos aprueba.
 - Apruebo está deshabilitado hasta que la página terminó de cargar, y se habilita 0,7 s después: un clic que ya venía
-  en camino cuando apareció la ventana no aprueba. Si el proceso de la página se cae en ese rato, sigue deshabilitado.
-- La página no se puede reemplazar: cualquier navegación que no empezó `awin` (por ejemplo, un archivo arrastrado a la
-  ventana) se cancela.
+  en camino cuando apareció la ventana no aprueba. Si el proceso de la página se cae, Apruebo se deshabilita, la página
+  se recarga una vez y Apruebo vuelve a esperar 0,7 s después de esa carga; si falla de nuevo, queda solo Cancelar. Si
+  la ventana no puede leer el archivo de la página, no se abre: imprime `cancelled` (código 1).
+- La página no se puede reemplazar: la ventana no acepta arrastrar y soltar (un archivo arrastrado no la cambia), y
+  cualquier navegación que no empezó `awin` deshabilita Apruebo para siempre.
 - Suena un `NSBeep` al abrirse, en todos los niveles.
 - **No** garantiza que la persona lea: ver el [caso medido](showcase.md#4-lo-que-midió-la-ventana-real).

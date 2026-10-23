@@ -70,9 +70,11 @@ Exit 0 means approved only together with stdout `approved`. `-h` and `--version`
   approves; Escape, closing and the timeout mean `cancelled` (1); a window that could not be shown or failed is exit 3.
   Neither ever approves.
 - Approve is disabled until the page has loaded, and turns on 0.7 s later, so a click already on its way when the window
-  appears cannot approve. It stays disabled if the page's process dies meanwhile. The page cannot be replaced: any
-  navigation awin did not start (a file dropped on the window, say) is cancelled. One system beep when the window
-  appears, at every level.
+  appears cannot approve. If the page's process dies, Approve turns off, the page reloads once and Approve waits another
+  0.7 s after that load; if it fails again, only Cancelar is left. A page file the window script cannot read opens no
+  window: it prints `cancelled` (exit 1).
+- The page cannot be replaced: the web view accepts no drag and drop, and any navigation awin did not start turns
+  Approve off for good. One system beep when the window appears, at every level.
 - It does **not** guarantee the person reads. That is why skills ask rarely and write consequences worth reading.
 
 ## Minimal valid request
