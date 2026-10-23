@@ -13,3 +13,14 @@
   - Como no cortó a los 150 s, no se probaron 30 s ni 90 s.
 - **Regla del plan:** `MAX_TIMEOUT = min(120, corte_de_copilot) - 20`. El corte de Copilot es de 150 s o más, así que
   queda **`MAX_TIMEOUT = 100`**, porque el límite lo pone Cursor (120 s). El chequeo de los 60 s pasa.
+
+## Ventana real: verificación a mano (2026-10-23)
+
+- `tools/preview.py`, primera corrida (antes del arreglo):
+  - `irreversible` con los estilos `alert` y `edge` dio `approved`.
+  - La primera ventana `tag` se cerró con `osascript exit -9`. La causa fue un `CGColor` pasado por el puente de JXA: el sistema mata el proceso (con una prueba aislada, la salida fue 137). Se reemplazó por un anillo `NSBox` hecho solo con `NSColor`; esa prueba sale con 0.
+  - La persona marcó dos problemas visuales: el margen superior era menor que el izquierdo y la ventana era demasiado alta.
+- `tools/preview.py`, segunda corrida (después del commit `b8011fb`): las 12 combinaciones de 4 niveles por 3 estilos abrieron y dieron `approved`, incluidos los 3 `tag`.
+- Prueba de teclado con una ventana `irreversible`:
+  - Primer intento: `approved`. La persona hizo clic en Apruebo **sin leer**. Es el reflejo que el proyecto quiere frenar, y aparece después de 12 ventanas iguales. Conclusión: la ventana sola no alcanza; las skills tienen que pedir aprobación pocas veces y solo cuando importa (ver la skill approval-window).
+  - Segundo intento: `cancelled`. Enter no hizo nada, Tab+Espacio no aprobó y Escape canceló.
