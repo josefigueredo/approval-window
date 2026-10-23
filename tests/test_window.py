@@ -113,6 +113,56 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(window.MAX_TIMEOUT, 100)
         self.assertEqual(window.DEFAULT_TIMEOUT, window.MAX_TIMEOUT)
 
+    def _method(self, src, selector):
+        """The body of one delegate method in window.js, up to the next method."""
+        start = src.index("'%s': {" % selector)
+        end = src.find("\n    '", start + 1)
+        return src[start:end if end != -1 else len(src)]
+
+    def test_script_cancels_every_navigation_it_did_not_start(self):
+        src = window.WINDOW_JS.read_text(encoding="utf-8")
+        policy = self._method(src, "webView:decidePolicyForNavigationAction:decisionHandler:")
+        self.assertIn("expectedLoads > 0", policy)
+        self.assertIn("'about:blank'", policy)
+        self.assertIn("POLICY_CANCEL", policy)
+        self.assertIn("POLICY_ALLOW", policy)
+        self.assertIn("const POLICY_CANCEL = 0;", src)
+        self.assertIn("const POLICY_ALLOW = 1;", src)
+        # every load awin starts goes through loadPage, which counts it
+        self.assertEqual(src.count("loadHTMLStringBaseURL"), 1)
+        load = src[src.index("function loadPage"):]
+        self.assertLess(load.index("expectedLoads += 1"), load.index("loadHTMLStringBaseURL"))
+        # a navigation that starts without being counted taints the page: Apruebo never enables again
+        start = self._method(src, "webView:didStartProvisionalNavigation:")
+        self.assertIn("tainted = true", start)
+        self.assertIn("ok.enabled = false", start)
+        self.assertIn("generation += 1", start)
+        # no link opens anything any more: the page has no links (every caller string is escaped text)
+        create = self._method(src, "webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:")
+        self.assertNotIn("openURL", src)
+        self.assertNotIn("'https'", src)
+        self.assertIn("return $();", create)
+
+    def test_script_enables_approve_only_after_a_delay_in_the_modal_run_loop(self):
+        src = window.WINDOW_JS.read_text(encoding="utf-8")
+        finish = self._method(src, "webView:didFinishNavigation:")
+        self.assertNotIn("ok.enabled = true", finish)
+        self.assertIn("APPROVE_DELAY", finish)
+        self.assertIn("const APPROVE_DELAY = 0.7;", src)
+        self.assertIn("timerWithTimeIntervalTargetSelectorUserInfoRepeats(APPROVE_DELAY", finish)
+        # runModalForWindow runs NSModalPanelRunLoopMode: a default-mode timer would never fire
+        self.assertIn("addTimerForMode(", finish)
+        self.assertIn("$.NSRunLoopCommonModes", finish)
+        self.assertNotIn("afterDelay", src)
+        self.assertNotIn("scheduledTimer", src)
+        enable = self._method(src, "enableApprove:")
+        self.assertIn("armed === generation", enable)
+        self.assertIn("!tainted", enable)
+        self.assertEqual(src.count("ok.enabled = true"), 1)
+        died = self._method(src, "webViewWebContentProcessDidTerminate:")
+        self.assertIn("generation += 1", died)
+        self.assertIn("ok.enabled = false", died)
+
     def test_script_has_no_approve_shortcut(self):
         src = window.WINDOW_JS.read_text(encoding="utf-8")
         self.assertIn("ok.keyEquivalent = ''", src)

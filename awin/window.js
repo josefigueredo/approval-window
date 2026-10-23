@@ -12,18 +12,42 @@ let result = 'cancelled';
 // Approve is enabled only once the page has loaded: a blank window must never be approvable (a person approved one,
 // 2026-10-14). The load is asynchronous, so a navigation delegate decides; a failure reloads once, then only Cancelar
 // is left. The web view holds its delegate weakly, so these globals keep it alive.
+// Approve turns on APPROVE_DELAY seconds after the load finished, not at once, so a click already on its way when the
+// window appears cannot approve. Only the loads awin starts (the page, and one reload) may navigate the web view; any
+// other navigation (a file dropped on it, say) is cancelled, and if one starts anyway the page is tainted and Approve
+// never turns on again.
+const APPROVE_DELAY = 0.7;
+const POLICY_CANCEL = 0;  // WKNavigationActionPolicyCancel
+const POLICY_ALLOW = 1;   // WKNavigationActionPolicyAllow
 let ok = null;
 let page = null;
 let pageView = null;
 let pageDelegate = null;
 let retries = 0;
+let expectedLoads = 0;  // loads awin started that have not begun yet
+let generation = 0;     // bumped by every navigation start and by a web process crash
+let armed = -1;         // the generation the pending enable timer belongs to
+let tainted = false;    // a navigation awin did not start began: Apruebo stays disabled
+
+function loadPage() {
+  expectedLoads += 1;
+  pageView.loadHTMLStringBaseURL(page, $.NSURL.URLWithString('about:blank'));
+}
 
 function reloadOnce(why) {
-  if (retries < 1 && pageView && page) {
+  if (retries < 1 && pageView && page && !tainted) {
     retries += 1;
-    pageView.loadHTMLStringBaseURL(page, $.NSURL.URLWithString('about:blank'));
+    loadPage();
   } else {
     console.log('awin: the approval page did not load (' + why + '); Apruebo stays disabled');
+  }
+}
+
+function decide(handler, policy) {
+  try {
+    handler(policy);
+  } catch (e) {  // the navigation then never proceeds: Apruebo stays disabled, only Cancelar is left
+    console.log('awin: could not answer a navigation (' + e + '); Apruebo stays disabled');
   }
 }
 
@@ -32,21 +56,55 @@ ObjC.registerSubclass({
   superclass: 'NSObject',
   protocols: ['WKNavigationDelegate', 'WKUIDelegate'],
   methods: {
-    // A link (target="_blank") opens in the browser and never navigates this window: the page that was approved
-    // stays on screen, and Apruebo is untouched. Only https links open; returning nil creates no new view.
+    // Only the loads awin started (about:blank with the page) may navigate; anything else is cancelled.
+    'webView:decidePolicyForNavigationAction:decisionHandler:': {
+      types: ['void', ['id', 'id', 'id']],
+      implementation: function (view, action, handler) {
+        const url = action.request.URL;
+        const own = expectedLoads > 0 && !tainted && url && !url.isNil() && url.absoluteString.js === 'about:blank';
+        if (!own) {
+          console.log('awin: blocked a navigation the approval window did not start');
+        }
+        decide(handler, own ? POLICY_ALLOW : POLICY_CANCEL);
+      },
+    },
+    // A navigation that starts without awin having started it taints the page (defense if the policy above fails).
+    'webView:didStartProvisionalNavigation:': {
+      types: ['void', ['id', 'id']],
+      implementation: function (view, navigation) {
+        generation += 1;
+        if (ok) { ok.enabled = false; }
+        if (expectedLoads > 0) {
+          expectedLoads -= 1;
+        } else {
+          tainted = true;
+        }
+      },
+    },
+    // The page has no links (every caller string is escaped text), so nothing opens; nil creates no new view.
     'webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:': {
       types: ['id', ['id', 'id', 'id', 'id']],
       implementation: function (view, configuration, action, features) {
-        const url = action.request.URL;
-        if (url && !url.isNil() && url.scheme.js === 'https') {
-          $.NSWorkspace.sharedWorkspace.openURL(url);
-        }
         return $();
       },
     },
+    // The timer runs in the common modes: runModalForWindow runs NSModalPanelRunLoopMode, where a default-mode
+    // timer would never fire.
     'webView:didFinishNavigation:': {
       types: ['void', ['id', 'id']],
-      implementation: function (view, navigation) { if (ok) { ok.enabled = true; } },
+      implementation: function (view, navigation) {
+        if (!ok || tainted) { return; }
+        armed = generation;
+        const timer = $.NSTimer.timerWithTimeIntervalTargetSelectorUserInfoRepeats(APPROVE_DELAY, pageDelegate, 'enableApprove:', null, false);
+        $.NSRunLoop.currentRunLoop.addTimerForMode(timer, $.NSRunLoopCommonModes);
+      },
+    },
+    // Fired by the timer: enables Approve only if nothing navigated, crashed or tainted the page since the load finished.
+    'enableApprove:': {
+      types: ['void', ['id']],
+      implementation: function (timer) {
+        if (ok && !tainted && armed === generation) { ok.enabled = true; }
+      },
     },
     'webView:didFailNavigation:withError:': {
       types: ['void', ['id', 'id', 'id']],
@@ -58,7 +116,11 @@ ObjC.registerSubclass({
     },
     'webViewWebContentProcessDidTerminate:': {
       types: ['void', ['id']],
-      implementation: function (view) { if (ok) { ok.enabled = false; } reloadOnce('web content process ended'); },
+      implementation: function (view) {
+        generation += 1;  // a pending enable timer no longer applies
+        if (ok) { ok.enabled = false; }
+        reloadOnce('web content process ended');
+      },
     },
   },
 });
@@ -130,8 +192,8 @@ function run(argv) {
   ok.action = 'approve:';
   ok.keyEquivalent = '';
   ok.refusesFirstResponder = true;  // Tab cannot focus it, so Space cannot press it (Full Keyboard Access)
-  ok.enabled = false;  // until the page has loaded
-  web.loadHTMLStringBaseURL(html, $.NSURL.URLWithString('about:blank'));
+  ok.enabled = false;  // until APPROVE_DELAY after the page has loaded
+  loadPage();
 
   panel.contentView.addSubview(web);
   panel.contentView.addSubview(cancel);
