@@ -1,0 +1,6 @@
+# Con un HOME de prueba: no toca tu carpeta de usuario
+$ ./install.sh
+$ readlink ~/.local/bin/awin
+$ readlink ~/.agents/skills/approval-window
+$ readlink ~/.cursor/skills/approval-window
+$ ./install.sh >/dev/null && echo "segunda corrida: sin error"
