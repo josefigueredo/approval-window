@@ -1,0 +1,7 @@
+$ awin --version
+# Una clave de más (acá, un intento de aprobar desde el pedido): la ventana no se abre
+$ echo '{"skill":"demo","consequence":"x","reversibility":"irreversible","audience":"me","approved":true}' | awin
+# Sin nada en la entrada
+$ echo '' | awin
+# Un JSON que no es un objeto
+$ echo '[1,2]' | awin
