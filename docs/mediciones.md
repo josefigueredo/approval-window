@@ -24,3 +24,22 @@
 - Prueba de teclado con una ventana `irreversible`:
   - Primer intento: `approved`. La persona hizo clic en Apruebo **sin leer**. Es el reflejo que el proyecto quiere frenar, y aparece después de 12 ventanas iguales. Conclusión: la ventana sola no alcanza; las skills tienen que pedir aprobación pocas veces y solo cuando importa (ver la skill approval-window).
   - Segundo intento: `cancelled`. Enter no hizo nada, Tab+Espacio no aprobó y Escape canceló.
+
+## De punta a punta en Copilot CLI y en Cursor (2026-10-23)
+
+Se corrió `install.sh` en el HOME real. Quedaron `awin 0.1.0` en el PATH y las skills enlazadas.
+
+- **Copilot CLI 1.0.103.** Al principio `copilot skill list` no cargó `approval-demo`: la descripción tenía un «: » sin
+  comillas, que el YAML estricto rechaza. Claude Code no se quejaba. Se corrigió en `7a13ed0`, con un test que lo cubre.
+  Las pruebas se lanzaron con `copilot -p … --allow-tool 'shell(python3)'`:
+  - «borrá una nota»: el agente avisó que iba a aparecer la ventana, la persona aprobó y salió
+    `done: deleted note "Shopping list"`. Tardó 50 s en total.
+  - «archivá las notas»: la persona canceló y salió `not done: cancelled`. `notes.json` quedó sin cambios.
+  - Detalle: el agente llamó a los botones «Approve» y «Cancel», pero en la ventana dicen «Apruebo» y «Cancelar».
+- **Cursor**, con `cursor-agent v2026.10.22-27dcf5f`, el modelo GPT-5.6 Terra y una sesión interactiva lanzada con
+  `run-in-cursor`, así que se registraron los hooks de Cursor:
+  - «borrá una nota»: el agente avisó que iba a aparecer la ventana y mandó `demo.py delete-note` al fondo (31 s). La
+    persona aprobó y salió `done: deleted note "Meeting notes"`.
+  - «archivar las notas», en el mismo hilo: la persona canceló y salió `not done: cancelled`. `notes.json` quedó sin
+    cambios.
+- En los dos harnesses el agente esperó la respuesta y respetó tanto el «sí» como el «no».
