@@ -47,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _read(args, stdin) -> object:
-    if args.spec:
+    if args.spec is not None:
         try:
             with open(args.spec, "rb") as handle:
                 raw = handle.read()

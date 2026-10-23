@@ -127,6 +127,11 @@ class CliTest(unittest.TestCase):
                 self.assertEqual((code, out, asker.calls), (2, "", []))
                 self.assertTrue(err.startswith("awin: "))
 
+    def test_empty_spec_is_an_error_not_stdin(self):
+        code, out, err, asker = run(["--spec", ""])  # a valid request waits on stdin
+        self.assertEqual((code, out, asker.calls), (2, "", []))
+        self.assertTrue(err.startswith("awin: cannot read spec file"), err)
+
     def test_timeout_can_only_lower(self):
         code, _, _, asker = run(["--timeout", "30"])
         self.assertEqual((code, asker.calls[0][1]), (0, 30))
