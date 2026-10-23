@@ -2,8 +2,9 @@
 // and two native buttons. argv: <html file> <window title> <approve button label> <page height> <tint hex or "">.
 // The tint (style tag only) is a colored border on the approve button; it never makes it the default button.
 // Prints "approved" only when the approve button is clicked; anything else (Cancelar, Escape, the close button, a
-// failure) prints "cancelled". Cancelar has Escape; the approve button has no key equivalent and nothing is the
-// window's default button, so approving always takes a click and no key can approve.
+// failure) prints "cancelled". Cancelar has Escape; the approve button has no key equivalent, nothing is the
+// window's default button, and the approve button refuses first responder, so Return, Enter and Space cannot press it
+// (not even with Full Keyboard Access on); approving takes a click.
 ObjC.import('Cocoa');
 ObjC.import('WebKit');
 
@@ -128,6 +129,7 @@ function run(argv) {
   ok.target = handler;
   ok.action = 'approve:';
   ok.keyEquivalent = '';
+  ok.refusesFirstResponder = true;  // Tab cannot focus it, so Space cannot press it (Full Keyboard Access)
   ok.enabled = false;  // until the page has loaded
   const tint = argv[4] || '';
   if (/^#[0-9a-fA-F]{6}$/.test(tint)) {

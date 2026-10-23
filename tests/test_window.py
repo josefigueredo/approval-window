@@ -116,6 +116,7 @@ class WindowTests(unittest.TestCase):
     def test_script_has_no_approve_shortcut(self):
         src = window.WINDOW_JS.read_text(encoding="utf-8")
         self.assertIn("ok.keyEquivalent = ''", src)
+        self.assertIn("ok.refusesFirstResponder = true;", src)
         self.assertIn("ok.enabled = false", src)
         self.assertEqual(src.count("NSBeep"), 1)
         self.assertNotIn("setDefaultButtonCell", src)
