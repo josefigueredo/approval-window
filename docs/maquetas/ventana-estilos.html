@@ -1,0 +1,83 @@
+<h2>C, más integrada a macOS</h2>
+<p class="subtitle">Tres maneras de que el riesgo forme parte de la ventana en lugar de ser una caja pegada arriba. Mismo caso: 11 issues en Jira PLATE.</p>
+
+<style>
+  .w{width:360px;border-radius:12px;overflow:hidden;font:13px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;color:#1d1d1f;
+     background:rgba(246,246,248,.96);box-shadow:0 0 0 .5px rgba(0,0,0,.25),0 18px 40px rgba(0,0,0,.28)}
+  .tb{height:28px;display:flex;align-items:center;padding:0 10px;gap:6px}
+  .tb i{width:12px;height:12px;border-radius:50%;background:#ff5f57;display:inline-block}.tb i+i{background:#d9d9dc}.tb i+i+i{background:#d9d9dc}
+  .tb span{flex:1;text-align:center;font-size:12px;font-weight:600;color:#4a4a4f;margin-right:42px}
+  .pad{padding:4px 20px 14px}
+  .h{font-size:15px;font-weight:700;margin:2px 0 4px;letter-spacing:-.01em}
+  .s{color:#6e6e73;font-size:12px;line-height:1.4}
+  .kv{margin-top:10px;border-radius:8px;background:rgba(0,0,0,.04)}
+  .kv div{display:flex;justify-content:space-between;padding:6px 10px;font-size:12px}.kv div+div{border-top:.5px solid rgba(0,0,0,.08)}
+  .kv b{font-weight:600}
+  .more{font-size:12px;color:#0066d6;margin-top:8px}
+  .btns{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px 14px}
+  .bt{font-size:13px;padding:4px 14px;border-radius:6px;background:#fff;box-shadow:0 0 0 .5px rgba(0,0,0,.2),0 .5px 1px rgba(0,0,0,.1)}
+  .ic{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex:none}
+  .amber{color:#b25000}.amberbg{background:linear-gradient(#ffcf70,#ff9f0a);color:#fff}
+  /* variant 2 */
+  .edge{display:flex}.edge .strip{width:4px;background:#ff9f0a;border-radius:0 2px 2px 0;margin:6px 0}
+  /* variant 3 */
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:rgba(255,159,10,.14);color:#a04a00}
+  .dot{width:7px;height:7px;border-radius:50%;background:#ff9f0a}
+  .ok-amber{box-shadow:0 0 0 .5px rgba(0,0,0,.2),0 0 0 2px rgba(255,159,10,.35)}
+</style>
+
+<div class="cards">
+  <div class="card" data-choice="c1" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px;background:linear-gradient(135deg,#7aa6d6,#c7b3e0)">
+      <div class="w">
+        <div class="tb"><i></i><i></i><i></i><span>jira-team-kit</span></div>
+        <div class="pad" style="display:flex;gap:12px">
+          <div class="ic amberbg">⚠︎</div>
+          <div style="flex:1">
+            <div class="h">Vas a crear 11 issues en Jira PLATE</div>
+            <div class="s amber">Lo ve todo el equipo y no se deshace solo.</div>
+            <div class="kv"><div><span>Contenido</span><b>1 épica · 10 tareas</b></div><div><span>Estado</span><b>6 en progreso · 4 backlog</b></div><div><span>Asignado a</span><b>Vos</b></div></div>
+            <div class="more">Mostrar detalle (11) ›</div>
+          </div>
+        </div>
+        <div class="btns"><span class="bt">Cancelar</span><span class="bt">Apruebo 11</span></div>
+      </div>
+    </div>
+    <div class="card-body"><h3>C1 · Como una alerta de macOS</h3><p>Ícono a la izquierda cuyo color/símbolo marca el riesgo, y una línea bajo el título que dice el riesgo en palabras. Es el lenguaje de las alertas del sistema.</p></div>
+  </div>
+
+  <div class="card" data-choice="c2" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px;background:linear-gradient(135deg,#7aa6d6,#c7b3e0)">
+      <div class="w">
+        <div class="tb"><i></i><i></i><i></i><span>jira-team-kit</span></div>
+        <div class="edge"><div class="strip"></div>
+          <div class="pad" style="flex:1;padding-left:16px">
+            <div class="h">Vas a crear 11 issues en Jira PLATE</div>
+            <div class="s">Visible para el equipo · no se deshace solo</div>
+            <div class="kv"><div><span>Contenido</span><b>1 épica · 10 tareas</b></div><div><span>Estado</span><b>6 en progreso · 4 backlog</b></div><div><span>Asignado a</span><b>Vos</b></div></div>
+            <div class="more">Mostrar detalle (11) ›</div>
+          </div>
+        </div>
+        <div class="btns"><span class="bt">Cancelar</span><span class="bt">Apruebo 11</span></div>
+      </div>
+    </div>
+    <div class="card-body"><h3>C2 · Borde de color</h3><p>Una línea fina al costado del contenido lleva el color del riesgo. Muy sobria; el riesgo se siente más que se lee.</p></div>
+  </div>
+
+  <div class="card" data-choice="c3" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px;background:linear-gradient(135deg,#7aa6d6,#c7b3e0)">
+      <div class="w">
+        <div class="tb"><i></i><i></i><i></i><span>jira-team-kit</span></div>
+        <div class="pad">
+          <span class="chip"><span class="dot"></span>Visible para el equipo · no se deshace solo</span>
+          <div class="h" style="margin-top:8px">Vas a crear 11 issues en Jira PLATE</div>
+          <div class="kv"><div><span>Contenido</span><b>1 épica · 10 tareas</b></div><div><span>Estado</span><b>6 en progreso · 4 backlog</b></div><div><span>Asignado a</span><b>Vos</b></div></div>
+          <div class="more">Mostrar detalle (11) ›</div>
+        </div>
+        <div class="btns"><span class="bt">Cancelar</span><span class="bt ok-amber">Apruebo 11</span></div>
+      </div>
+    </div>
+    <div class="card-body"><h3>C3 · Etiqueta + botón teñido</h3><p>El riesgo va en una etiqueta tipo «pill» arriba del título, y el mismo color tiñe suavemente el borde de Apruebo (sin volverlo el botón por defecto).</p></div>
+  </div>
+</div>
+<p class="subtitle" style="margin-top:14px">Los tres siguen el modo claro/oscuro del sistema en la versión real; acá se ven en claro.</p>
