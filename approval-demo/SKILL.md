@@ -1,6 +1,6 @@
 ---
 name: approval-demo
-description: Use when the user wants to try the approval window (awin) end to end: it runs fake note actions, one per reversibility level, and each one opens the window before anything is written.
+description: Use when the user wants to try the approval window (awin) end to end. It runs fake note actions, one per reversibility level, and each one opens the window before anything is written.
 ---
 
 # approval-demo

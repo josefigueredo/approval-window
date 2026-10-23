@@ -178,5 +178,22 @@ class DemoTest(unittest.TestCase):
         self.assertEqual(code, 2)
 
 
+class SkillFrontmatterTest(unittest.TestCase):
+    """Strict YAML parsers (Copilot CLI) reject what Claude Code tolerates."""
+
+    def test_frontmatter_values_are_plain_yaml_scalars(self):
+        for path in (ROOT / "SKILL.md", ROOT / "approval-demo" / "SKILL.md"):
+            lines = path.read_text(encoding="utf-8").split("\n")
+            self.assertEqual(lines[0], "---", path)
+            end = lines.index("---", 1)
+            for line in lines[1:end]:
+                key, sep, value = line.partition(": ")
+                self.assertTrue(sep, "%s: bad line %r" % (path, line))
+                with self.subTest(path=path.name, key=key):
+                    self.assertNotIn(": ", value)
+                    self.assertNotIn(" #", value)
+                    self.assertNotIn(value[:1], "\"'[]{}&*!|>%@`#,?-")
+
+
 if __name__ == "__main__":
     unittest.main()
