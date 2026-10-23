@@ -57,17 +57,17 @@ Rules:
 
 > **Vas a \<verbo\> \<cantidad\> \<qué\> en \<dónde\>.**
 
-- Concrete numbers and names: «Vas a crear 11 issues en Jira PLATE.», «Vas a borrar tus 7 notas de notes-cli para siempre.»
+- Concrete numbers and names: «Vas a crear 11 issues en Jira PLATE.», «Vas a borrar tus 14 borradores de drafts-cli para siempre.»
 - No jargon, flags, ids without a name, or command lines. Not «Ejecutar sync --apply».
 - `summary` (≤ 6 rows) answers what a person would ask before clicking: how many, where, which ones, what remains.
 - `detail` holds the full item list (folded). `risk_note` only when the default text per level says too little.
 - `approve_label` with the count for batches: «Apruebo 11».
 
 ```json
-{"skill": "notes-cli", "consequence": "Vas a borrar tus 7 notas de notes-cli para siempre.",
- "reversibility": "irreversible", "audience": "me", "approve_label": "Apruebo 7",
- "summary": [["Notas", "7"], ["Archivo", "~/.local/state/notes-cli/notes.json"]],
- "detail": ["buy milk", "call Ana", "..."]}
+{"skill": "drafts-cli", "consequence": "Vas a borrar tus 14 borradores de drafts-cli para siempre.",
+ "reversibility": "irreversible", "audience": "me", "approve_label": "Apruebo 14",
+ "summary": [["Borradores", "14"], ["Carpeta", "~/Library/Application Support/drafts-cli"]],
+ "detail": ["Propuesta Q4", "Respuesta a Ana", "..."]}
 ```
 
 ## 4. Wire it
@@ -77,7 +77,7 @@ Build the JSON, find `awin` on the PATH, pass the JSON on stdin, branch on the e
 ```python
 import json, shutil, subprocess, sys
 
-NO_AWIN = "notes-cli: awin is not installed; install approval-window first"
+NO_AWIN = "drafts-cli: awin is not installed; install approval-window first"
 
 
 def default_run_awin(request):
@@ -89,20 +89,20 @@ def default_run_awin(request):
     return subprocess.run([exe], input=json.dumps(request), universal_newlines=True).returncode
 
 
-def cmd_clear(run_awin):
-    notes = load()
-    if not notes:
-        print("nothing to clear")          # no window for a no-op
+def cmd_purge(run_awin):
+    drafts = load_drafts()
+    if not drafts:
+        print("nothing to purge")           # no window for a no-op
         return 0
     code = run_awin({...})                  # the request from step 3
     if code == 0:
-        save([])                            # write ONLY here
-        print("deleted %d notes" % len(notes))
+        delete_all(drafts)                  # write ONLY here
+        print("deleted %d drafts" % len(drafts))
         return 0
     if code == 1:
         print("not done: cancelled")
     elif code == 2:
-        print("not done: invalid approval request (bug in notes-cli)", file=sys.stderr)
+        print("not done: invalid approval request (bug in drafts-cli)", file=sys.stderr)
     elif code == 3:
         print("not done: no approval window available on this machine", file=sys.stderr)
     else:

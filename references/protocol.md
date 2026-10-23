@@ -67,6 +67,6 @@ A missing `awin` on the PATH is handled by the caller as exit 3.
 ## Minimal valid request
 
 ```json
-{"skill": "notes-cli", "consequence": "Vas a borrar tus 7 notas de notes-cli para siempre.",
+{"skill": "drafts-cli", "consequence": "Vas a borrar tus 14 borradores de drafts-cli para siempre.",
  "reversibility": "irreversible", "audience": "me"}
 ```

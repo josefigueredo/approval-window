@@ -26,9 +26,9 @@ command can delete them later: the notifications already went out.
 
 ## Traps
 
-- **Local is not the same as harmless.** Deleting the person's notes from a local JSON file with no backup is
+- **Local is not the same as harmless.** Deleting the person's saved data from a local file with no backup is
   `irreversible`, audience `me`.
-- **Additive local writes do not ask at all.** Appending the note the person just typed is not a level; it is no window.
+- **Additive local writes do not ask at all.** Saving the item the person just typed is not a level; it is no window.
 - **`reversible_planned` needs a real command.** It must exist, be tested, and be named in `undo` exactly as the person
   would run it. Without `undo`, awin shows `reversible_manual` and warns on stderr.
 - **Do not invent an undo to lower the level.** If you think the action deserves an undo, that is a separate feature
