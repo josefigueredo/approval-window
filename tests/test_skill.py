@@ -89,6 +89,20 @@ BAD = [
     dict(GOOD, approve_label="A" * 25),
     dict(GOOD, risk_note="r" * 141),
     dict(GOOD, undo="u" * 201),
+    dict(GOOD, skill="a\x00b"),
+    dict(GOOD, approve_label="Apruebo\x00"),
+    dict(GOOD, consequence="Vas a borrar\nnada."),
+    dict(GOOD, consequence="Vas a borrar \ud800."),
+    dict(GOOD, consequence="Vas a borrar \u202etxt.exe"),
+    dict(GOOD, risk_note="ojo\x7f"),
+    dict(GOOD, reversibility="reversible_planned", undo="restore\u2066"),
+    dict(GOOD, summary=[["a\tb", "c"]]),
+    dict(GOOD, summary=[["a", "c\u2069"]]),
+    dict(GOOD, detail=["ok", "x\x1b[31m"]),
+    dict(GOOD, detail=["ok"] * 250 + ["\x00"]),
+    dict(GOOD, skill="   "),
+    dict(GOOD, approve_label=" "),
+    dict(GOOD, consequence="\u00a0"),
 ]
 
 
@@ -106,7 +120,7 @@ class CheckerTest(unittest.TestCase):
     def test_rejects_what_awin_rejects(self):
         for request in BAD:
             with self.subTest(request=str(request)[:80]):
-                with self.assertRaises(InvalidRequest):
+                with self.assertRaises(InvalidRequest), contextlib.redirect_stderr(io.StringIO()):
                     parse(request)
                 with self.assertRaises(AssertionError):
                     self.check(request)

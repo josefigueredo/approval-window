@@ -20,6 +20,11 @@ Las claves desconocidas se rechazan (código 2).
 | `approve_label` | str | no | 1–24 caracteres; por defecto `Apruebo` |
 | `style` | str | no | `alert` (por defecto), `edge`, `tag` |
 
+Cualquier texto (también las etiquetas, los valores de `summary` y las líneas de `detail`) se rechaza con código 2
+si tiene un carácter de control (U+0000–U+001F, o sea también saltos de línea y tabulaciones, o U+007F), un surrogate
+suelto o un carácter que invierte la dirección del texto (U+202A–U+202E, U+2066–U+2069). `skill`, `consequence` y
+`approve_label` no pueden ser solo espacios.
+
 Texto por defecto de `risk_note`:
 
 | Nivel | Texto |

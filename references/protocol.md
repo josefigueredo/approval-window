@@ -22,6 +22,10 @@ A JSON object. Unknown keys are rejected with exit 2 (so `"approved": true` or `
 | `approve_label` | str | no | 1–24 chars; default `Apruebo` |
 | `style` | str | no | `alert` (default), `edge`, `tag` |
 
+Every string (summary labels and values and detail lines too) is rejected with exit 2 when it holds a control
+character (U+0000–U+001F, so newlines and tabs too, or U+007F), a lone surrogate, or a bidi override or isolate
+(U+202A–U+202E, U+2066–U+2069). `skill`, `consequence` and `approve_label` must not be only whitespace.
+
 Default `risk_note`:
 
 | Level | Text | Color |

@@ -100,6 +100,33 @@ class CliTest(unittest.TestCase):
             self.assertTrue(err.startswith("awin: "))
             self.assertEqual(asker.calls, [])
 
+    def test_unexpected_error_exit_3_one_line_no_traceback(self):
+        for exc in (ValueError("embedded null byte"), UnicodeEncodeError("utf-8", "x", 0, 1, "bad"),
+                    RuntimeError("boom\nsecond line"), KeyError("k")):
+            with self.subTest(exc=type(exc).__name__):
+                code, out, err, _ = run(asker=Asker(raises=exc))
+                self.assertEqual((code, out), (3, ""))
+                self.assertTrue(err.startswith("awin: unexpected error: "), err)
+                self.assertEqual(err.count("\n"), 1)
+                self.assertNotIn("Traceback", err)
+
+    def test_unexpected_error_in_availability_check_exit_3(self):
+        def broken():
+            raise OSError("boom")
+        out, err = io.StringIO(), io.StringIO()
+        code = main([], stdin=io.BytesIO(json.dumps(MIN).encode()), stdout=out, stderr=err,
+                    asker=Asker(), is_available=broken)
+        self.assertEqual((code, out.getvalue()), (3, ""))
+        self.assertTrue(err.getvalue().startswith("awin: unexpected error: "))
+
+    def test_nul_and_surrogate_in_input_exit_2_no_window(self):
+        for data in ({**MIN, "skill": "a\u0000b"}, {**MIN, "approve_label": "A\u0000"},
+                     {**MIN, "consequence": "Vas a \ud800"}):
+            with self.subTest(data=repr(data)):
+                code, out, err, asker = run(data=data)
+                self.assertEqual((code, out, asker.calls), (2, "", []))
+                self.assertTrue(err.startswith("awin: "))
+
     def test_timeout_can_only_lower(self):
         code, _, _, asker = run(["--timeout", "30"])
         self.assertEqual((code, asker.calls[0][1]), (0, 30))

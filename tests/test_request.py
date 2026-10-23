@@ -152,6 +152,39 @@ class ParseTests(unittest.TestCase):
         with self.assertRaises(Exception):
             r.style = "tag"
 
+    def test_control_surrogate_and_bidi_characters_are_rejected(self):
+        bad = ["a\x00b", "a\x1fb", "a\x7fb", "a\nb", "a\tb", "a\ud800b", "a\udfffb",
+               "a\u202ab", "a\u202eb", "a\u2066b", "a\u2069b"]
+        fields = {
+            "skill": lambda v: {"skill": v},
+            "consequence": lambda v: {"consequence": v},
+            "risk_note": lambda v: {"risk_note": v},
+            "undo": lambda v: {"reversibility": "reversible_planned", "undo": v},
+            "approve_label": lambda v: {"approve_label": v},
+            "summary label": lambda v: {"summary": [[v, "x"]]},
+            "summary value": lambda v: {"summary": [["x", v]]},
+            "detail": lambda v: {"detail": ["ok", v]},
+            "detail past 200": lambda v: {"detail": ["ok"] * 250 + [v]},
+        }
+        for name, build in fields.items():
+            for value in bad:
+                with self.subTest(field=name, value=repr(value)):
+                    with self.assertRaises(InvalidRequest) as cm:
+                        with contextlib.redirect_stderr(io.StringIO()):
+                            parse({**MIN, **build(value)})
+                    self.assertNotIn(value, str(cm.exception))
+
+    def test_whitespace_only_required_text_is_rejected(self):
+        for key in ("skill", "consequence", "approve_label"):
+            for value in (" ", "   ", "\u00a0", "\u3000"):
+                with self.subTest(key=key, value=repr(value)):
+                    with self.assertRaises(InvalidRequest):
+                        parse({**MIN, key: value})
+
+    def test_ordinary_unicode_is_kept(self):
+        r = parse({**MIN, "consequence": "Vas a borrar «Ideas» 🗑️ — ñandú", "detail": ["a\u00a0b"]})
+        self.assertEqual(r.consequence, "Vas a borrar «Ideas» 🗑️ — ñandú")
+
     def test_invalid_request_is_value_error(self):
         self.assertTrue(issubclass(InvalidRequest, ValueError))
 

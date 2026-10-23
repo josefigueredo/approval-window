@@ -1,6 +1,7 @@
 """Request model and validation for awin. Stdlib only, Python 3.9 compatible."""
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -25,6 +26,9 @@ _KEYS = frozenset((
     "skill", "consequence", "reversibility", "audience", "risk_note", "undo",
     "summary", "detail", "approve_label", "style",
 ))
+# C0 controls and DEL (a NUL cannot cross argv; a newline would fake a line), lone surrogates (cannot be written as
+# UTF-8) and bidi overrides/isolates (they reorder what the person reads).
+_FORBIDDEN = re.compile("[\x00-\x1f\x7f\ud800-\udfff\u202a-\u202e\u2066-\u2069]")
 _DOWNGRADE_WARNING = "reversible_planned without undo; shown as reversible_manual"
 
 
@@ -48,12 +52,22 @@ class Request:
     warnings: Tuple[str, ...]
 
 
+def _clean(key, value):
+    """Reject characters that break argv or the page, or that change what the person reads."""
+    if _FORBIDDEN.search(value):
+        raise InvalidRequest("%s contains a control, surrogate or bidi override character" % key)
+    return value
+
+
 def _text(data, key, max_len, min_len=0):
     value = data[key]
     if not isinstance(value, str):
         raise InvalidRequest("%s must be a string" % key)
     if len(value) < min_len or len(value) > max_len:
         raise InvalidRequest("%s must be %d-%d characters" % (key, min_len, max_len))
+    _clean(key, value)
+    if min_len and not value.strip():
+        raise InvalidRequest("%s must not be only whitespace" % key)
     return value
 
 
@@ -107,6 +121,8 @@ def parse(data: object) -> Request:
                     or not all(isinstance(x, str) for x in row)):
                 raise InvalidRequest("summary rows must be [label, value] strings")
             label, value = row
+            _clean("summary label", label)
+            _clean("summary value", value)
             if not 1 <= len(label) <= 30:
                 raise InvalidRequest("summary label must be 1-30 characters")
             if len(value) > 100:
@@ -122,6 +138,7 @@ def parse(data: object) -> Request:
                 raise InvalidRequest("detail lines must be strings")
             if len(line) > 300:
                 raise InvalidRequest("detail lines must be at most 300 characters")
+            _clean("detail line", line)
         detail = tuple(lines[:MAX_DETAIL_LINES])
         hidden = len(lines) - len(detail)
 

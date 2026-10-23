@@ -87,12 +87,14 @@ def main(argv, stdin=None, stdout=None, stderr=None, asker=None, is_available=No
     except InvalidRequest as exc:
         return fail(EXIT_INVALID, exc)
 
-    if not is_available():
-        return fail(EXIT_UNAVAILABLE, "no approval window available (needs macOS and /usr/bin/osascript)")
     try:
+        if not is_available():
+            return fail(EXIT_UNAVAILABLE, "no approval window available (needs macOS and /usr/bin/osascript)")
         approved = asker(req, args.timeout)
     except window.Unavailable as exc:
         return fail(EXIT_UNAVAILABLE, exc or "no approval window available")
+    except Exception as exc:  # fail closed: never 0, never a traceback
+        return fail(EXIT_UNAVAILABLE, "unexpected error: %s: %s" % (type(exc).__name__, exc))
 
     if approved is True:
         print("approved", file=stdout)
