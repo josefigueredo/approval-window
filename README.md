@@ -62,3 +62,5 @@ python3 ~/.agents/skills/harness-docs/hdoc.py check .   # layout de la documenta
 ```
 
 TDD y Conventional Commits. `tests/test_install.py` corre `install.sh` con un `HOME` temporal: nunca toca el tuyo.
+La skill `approval-window` se evalúa sobre el CLI de ejemplo `examples/notes-cli`, que no trae la ventana
+([evaluación](docs/evaluacion-skill.md)); sus tests corren con `python3 -m unittest discover -s examples/notes-cli/tests`.
