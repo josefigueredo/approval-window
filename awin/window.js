@@ -138,7 +138,7 @@ ObjC.registerSubclass({
 
 function run(argv) {
   const html = $.NSString.stringWithContentsOfFileEncodingError(argv[0], $.NSUTF8StringEncoding, null);
-  if (!html) {  // an unreadable page file never opens an empty window
+  if (!html || html.isNil()) {  // an unreadable page file never opens a window (JXA wraps nil, so !html alone is false)
     return 'cancelled';
   }
   const width = 460;

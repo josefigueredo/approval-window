@@ -119,6 +119,12 @@ class WindowTests(unittest.TestCase):
         end = src.find("\n    '", start + 1)
         return src[start:end if end != -1 else len(src)]
 
+    def test_script_refuses_an_unreadable_page_file(self):
+        src = window.WINDOW_JS.read_text(encoding="utf-8")
+        # JXA wraps nil in an object, so `!html` alone is never true and a missing file opened a window (measured
+        # 2026-10-23): the guard has to ask isNil().
+        self.assertIn("if (!html || html.isNil())", src)
+
     def test_script_blocks_navigation_it_did_not_start(self):
         src = window.WINDOW_JS.read_text(encoding="utf-8")
         # JXA cannot call a WebKit block, and declaring decidePolicy under WKNavigationDelegate kills osascript
