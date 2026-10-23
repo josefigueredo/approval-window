@@ -43,3 +43,19 @@ Se corrió `install.sh` en el HOME real. Quedaron `awin 0.1.0` en el PATH y las 
   - «archivar las notas», en el mismo hilo: la persona canceló y salió `not done: cancelled`. `notes.json` quedó sin
     cambios.
 - En los dos harnesses el agente esperó la respuesta y respetó tanto el «sí» como el «no».
+
+## Prueba visual después de la revisión final (2026-10-23)
+
+Se corrió `prueba-visual.sh`: 4 ventanas a través de `awin`, cada una con una instrucción.
+
+- **Primera corrida, después de `25eb64c`:** las 4 ventanas salieron con `exit 3` porque `osascript` terminó con `exit 1`.
+  - La causa: `registerSubclass` rechazó el método `decidePolicyForNavigationAction:decisionHandler:` («method types do not match the protocol method types»).
+  - Sin el protocolo, el *block* tampoco se puede llamar desde JXA («Object is not a function»).
+  - El fallo fue seguro: ninguna ventana aprobó.
+  - El arreglo, en `c32d694`, fue sacar ese método y bloquear el arrastre con `unregisterDraggedTypes`. Sin ventana se comprobó que los tipos de arrastre bajan de 17 a 0, que Apruebo se habilita a los 699 ms y que una navegación ajena lo deshabilita para siempre.
+- **Segunda corrida, después de `785c160`:**
+  1. Apruebo arrancó en gris. El botón rojo dio `cancelled` (exit 1).
+  2. Sin tocar nada, la ventana se venció a los 15 s y dio `cancelled` (exit 1).
+  3. Se arrastró un archivo del Finder sobre el contenido y **no pasó nada**. El clic en Apruebo dio `approved` (exit 0).
+  4. En modo oscuro la instrucción era cerrar con Escape, pero la persona hizo clic en Apruebo: `approved` (exit 0). **Es la segunda vez en el día que la mano va a Apruebo aunque la consigna diga otra cosa.** Refuerza la conclusión de antes: hay que pedir aprobación pocas veces y solo cuando importa.
+- Sin verificar: si en modo oscuro se lee todo bien. La persona no lo informó.
