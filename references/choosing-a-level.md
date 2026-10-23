@@ -8,19 +8,22 @@ nobody picks a color by hand.
 | # | Question | If the answer is… | Level |
 |---|---|---|---|
 | 1 | ¿Se puede deshacer? Can it be undone at all? | No | `irreversible` |
-| 2 | ¿Queda rastro aunque se deshaga? Does it leave a trace others see, even after undoing (notifications, mails, visible history)? | Yes | `partial` |
+| 2 | ¿Queda rastro aunque se deshaga? Does it create something others already received or saw, which undoing does not remove (notifications, mails, new items, edited content)? | Yes | `partial` |
 | 3 | ¿Hay un comando que lo deshace? Is there a real undo command in this CLI, with its own test? | Yes | `reversible_planned` (pass `undo`) |
 | 3 | | No, it is undone by hand | `reversible_manual` |
 
 Ask question 1 first. An undo command does not make a sent mail un-sent, and creating issues stays `partial` even if a
 command can delete them later: the notifications already went out.
 
+Moving 10 tickets to another status is `reversible_manual`, not `partial`: moving them back restores the state, and
+nothing new was sent or created. A status log entry alone is not a trace in the sense of question 2.
+
 ## Examples (from the design)
 
 | Level | Meaning | Examples |
 |---|---|---|
 | `irreversible` | No way back | Deleting with no trash, sending a mail, overwriting a file with no copy |
-| `partial` | Can be reverted, but leaves a trace | Creating issues (notifications go out), editing a PR (history stays) |
+| `partial` | Can be reverted, but others already got or saw it | Creating issues (notifications go out), editing a PR (reviewers saw the edit) |
 | `reversible_manual` | Can be undone, by hand | Moving 10 tickets to another status |
 | `reversible_planned` | A known command undoes it | An `apply` with its `undo`; `archive-notes` undone by `unarchive-notes` |
 
