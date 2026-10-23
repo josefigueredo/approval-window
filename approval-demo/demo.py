@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 SKILL = "approval-demo"
-ACTIONS = ("delete-note", "share-note", "rename-notes", "archive-notes", "unarchive-notes")
+ACTIONS = ("delete-note", "share-note", "rename-notes", "archive-notes", "unarchive-notes", "reset")
 SAMPLE = [
     {"id": 1, "title": "Shopping list", "archived": False, "shared": False},
     {"id": 2, "title": "Meeting notes", "archived": False, "shared": False},
@@ -133,7 +133,20 @@ def plan_unarchive(notes):
     return req, apply
 
 
+def plan_reset(notes):
+    req = _request(
+        consequence="Vas a reemplazar tus %d notas por las %d de ejemplo." % (len(notes), len(SAMPLE)),
+        reversibility="irreversible", audience="me", style="alert",
+        summary=[["Notas actuales", str(len(notes))], ["Notas de ejemplo", str(len(SAMPLE))]])
+
+    def apply():
+        save([dict(n) for n in SAMPLE])
+        return "restored %d sample notes" % len(SAMPLE)
+    return req, apply
+
+
 PLANS = {
+    "reset": plan_reset,
     "delete-note": plan_delete,
     "share-note": plan_share,
     "rename-notes": plan_rename,

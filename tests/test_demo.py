@@ -21,6 +21,7 @@ EXPECTED = {
     "rename-notes": ("reversible_manual", "edge", "me"),
     "archive-notes": ("reversible_planned", "alert", "me"),
     "unarchive-notes": ("reversible_planned", "edge", "me"),
+    "reset": ("irreversible", "alert", "me"),
 }
 
 
@@ -155,6 +156,22 @@ class DemoTest(unittest.TestCase):
             code, _, err = self.run_main(argv, Fake(0))
             self.assertEqual(code, 2)
             self.assertIn("usage", err)
+
+    def test_reset_approved_restores_sample_notes_even_when_empty(self):
+        self.run_main(["list"], Fake(0))
+        self.file.write_text("[]", encoding="utf-8")
+        fake = Fake(0)
+        code, _, _ = self.run_main(["reset"], fake)
+        self.assertEqual(code, 0)
+        self.assertEqual(self.notes(), demo.SAMPLE)
+        self.assertIn("0 notas", fake.requests[0]["consequence"])
+
+    def test_reset_cancelled_leaves_notes_unchanged(self):
+        self.run_main(["delete-note"], Fake(0))
+        raw = self.file.read_text(encoding="utf-8")
+        code, _, _ = self.run_main(["reset"], Fake(1))
+        self.assertEqual(code, 1)
+        self.assertEqual(self.file.read_text(encoding="utf-8"), raw)
 
     def test_no_bypass_option_exists(self):
         code, _, _ = self.run_main(["delete-note", "--yes"], Fake(0))

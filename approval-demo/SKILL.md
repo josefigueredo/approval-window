@@ -7,7 +7,9 @@ description: Use when the user wants to try the approval window (awin) end to en
 
 Test skill for the `awin` approval window. Notes live in `~/.local/state/approval-demo/notes.json` and are fake.
 
-Actions (`demo.py <action>`): `delete-note` (irreversible), `share-note` (partial), `rename-notes` (reversible by hand), `archive-notes` and `unarchive-notes` (reversible with a command).
+Run it as `python3 ~/.agents/skills/approval-demo/demo.py <action>` (the skill is installed as a symlink there).
+
+Actions: `delete-note` (irreversible), `share-note` (partial), `rename-notes` (reversible by hand), `archive-notes` and `unarchive-notes` (reversible with a command), and `reset` (irreversible: replaces all notes with the 3 samples; use it when notes ran out).
 
 ## Rules
 
@@ -16,4 +18,4 @@ Actions (`demo.py <action>`): `delete-note` (irreversible), `share-note` (partia
 - Report the result line the command prints (`done: ...` or `not done: ...`).
 - After a cancel, never retry unless the user asks.
 - Never try to skip or answer the window; only the person clicks it.
-- `demo.py list` shows the notes (no window).
+- `python3 ~/.agents/skills/approval-demo/demo.py list` shows the notes (no window).
